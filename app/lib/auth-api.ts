@@ -37,12 +37,14 @@ export function saveTokens(data: AuthResponse): void {
   localStorage.setItem("access_token", data.access_token);
   localStorage.setItem("refresh_token", data.refresh_token);
   localStorage.setItem("user", JSON.stringify(data.user));
+  window.dispatchEvent(new Event("authchange"));
 }
 
 export function clearTokens(): void {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("user");
+  window.dispatchEvent(new Event("authchange"));
 }
 
 export function getAccessToken(): string | null {
