@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPrisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { signJWT } from "@/lib/jwt";
 import { randomBytes } from "node:crypto";
@@ -25,8 +25,6 @@ export async function POST(req: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
       return err(400, "VALIDATION_ERROR", "Некорректный email или пустой пароль");
     }
-
-    const prisma = getPrisma();
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !verifyPassword(password, user.password)) {

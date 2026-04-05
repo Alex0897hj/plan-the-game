@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPrisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { signJWT } from "@/lib/jwt";
 import { randomBytes } from "node:crypto";
 
@@ -17,8 +17,6 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body.refresh_token !== "string") {
       return err(400, "VALIDATION_ERROR", "Поле refresh_token обязательно");
     }
-
-    const prisma = getPrisma();
 
     const stored = await prisma.refreshToken.findUnique({
       where:   { token: body.refresh_token },

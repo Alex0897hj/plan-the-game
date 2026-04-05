@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPrisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
 
 function err(status: number, error: string, message: string) {
@@ -17,8 +17,6 @@ export async function GET(req: NextRequest) {
     if (!payload) {
       return err(401, "INVALID_TOKEN", "Токен недействителен или истёк");
     }
-
-    const prisma = getPrisma();
 
     const user = await prisma.user.findUnique({
       where:  { id: payload.sub },
