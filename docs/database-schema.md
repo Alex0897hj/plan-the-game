@@ -30,7 +30,8 @@
 | `id` | `Int` | PK, auto-increment |
 | `email` | `String` | Unique |
 | `password` | `String` | Hashed |
-| `name` | `String?` | Optional |
+| `name` | `String` | Unique |
+| `isAdmin` | `Boolean` | Default: `false` |
 | `createdAt` | `DateTime` | Default: now |
 
 **Relations:**
@@ -63,6 +64,9 @@
 | `city` | `String` | |
 | `gameDateTime` | `DateTime` | |
 | `minPlayers` | `Int` | |
+| `latitude` | `Float?` | Optional |
+| `longitude` | `Float?` | Optional |
+| `address` | `String?` | Optional |
 | `createdById` | `Int` | FK → `User.id` |
 | `status` | `GameStatus` | Default: `upcoming` |
 | `createdAt` | `DateTime` | Default: now |
