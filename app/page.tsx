@@ -38,6 +38,7 @@ interface Game {
   createdBy:      { id: number; email: string; name: string | null };
   confirmedCount: number;
   thinkingCount:  number;
+  myStatus:       "confirmed" | "thinking" | null;
   latitude:       number | null;
   longitude:      number | null;
 }
@@ -59,9 +60,10 @@ function staticMapUrl(lat: number, lng: number): string {
 }
 
 export default function Home() {
-  const [games,    setGames]    = useState<Game[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [showMap,  setShowMap]  = useState(false);
+  const [games,      setGames]      = useState<Game[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [showMap,    setShowMap]    = useState(false);
+  const [activeTab,  setActiveTab]  = useState<"open" | "my">("open");
   const [cityFilter, setCityFilter] = useState("");
   const [dateFrom,   setDateFrom]   = useState("");
   const [dateTo,     setDateTo]     = useState("");
@@ -80,8 +82,18 @@ export default function Home() {
     return () => window.removeEventListener("authchange", fetchGames);
   }, [fetchGames]);
 
+  const hasMyGames = useMemo(() => {
+    const now = new Date();
+    return games.some((g) => g.myStatus !== null && new Date(g.gameDateTime) > now);
+  }, [games]);
+
   const filteredGames = useMemo(() => {
-    return games.filter((g) => {
+    const now = new Date();
+    const base = activeTab === "open"
+      ? games.filter((g) => g.status === "upcoming" && new Date(g.gameDateTime) > now)
+      : games.filter((g) => g.myStatus !== null && new Date(g.gameDateTime) > now);
+
+    return base.filter((g) => {
       if (cityFilter && g.city !== cityFilter) return false;
       const dt = new Date(g.gameDateTime);
       if (dateFrom && dt < new Date(dateFrom)) return false;
@@ -92,7 +104,7 @@ export default function Home() {
       }
       return true;
     });
-  }, [games, cityFilter, dateFrom, dateTo]);
+  }, [games, activeTab, cityFilter, dateFrom, dateTo]);
 
   const hasActiveFilters = cityFilter || dateFrom || dateTo;
 
@@ -111,34 +123,35 @@ export default function Home() {
   return (
     <main style={pageStyle}>
 
-      {showMap && (
-        <GamesMap
-          games={mappableGames.map((g) => ({
-            id:             g.id,
-            title:          g.title,
-            city:           g.city,
-            gameDateTime:   g.gameDateTime,
-            confirmedCount: g.confirmedCount,
-            minPlayers:     g.minPlayers,
-            lat:            g.latitude!,
-            lng:            g.longitude!,
-          }))}
-          onClose={() => setShowMap(false)}
-        />
-      )}
-
       <div style={innerStyle}>
         <div style={topRowStyle}>
           <h1 style={headingStyle}>Игры</h1>
           {mappableGames.length > 0 && (
-            <button onClick={() => setShowMap(true)} style={mapBtnStyle}>
+            <button onClick={() => setShowMap((v) => !v)} style={mapBtnStyle}>
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
                 <path d="M1 3.5l4.5-2 5 2 4.5-2v11l-4.5 2-5-2-4.5 2v-11z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
                 <path d="M5.5 1.5v11M10.5 3.5v11" stroke="currentColor" strokeWidth="1.4"/>
               </svg>
-              Показать на карте
+              {showMap ? "Скрыть карту" : "Показать на карте"}
             </button>
           )}
+        </div>
+
+        {/* ── Tabs ── */}
+        <div style={tabsRowStyle}>
+          <button
+            onClick={() => setActiveTab("open")}
+            style={activeTab === "open" ? activeTabBtnStyle : tabBtnStyle}
+          >
+            Открытые игры
+          </button>
+          <button
+            onClick={() => setActiveTab("my")}
+            style={{ position: "relative", ...(activeTab === "my" ? activeTabBtnStyle : tabBtnStyle) }}
+          >
+            Мои игры
+            {hasMyGames && <span style={myGamesDotStyle} />}
+          </button>
         </div>
 
         {/* ── Filters ── */}
@@ -187,11 +200,26 @@ export default function Home() {
           )}
         </div>
 
-        {filteredGames.length === 0 ? (
+        {showMap ? (
+          <GamesMap
+            games={mappableGames.map((g) => ({
+              id:             g.id,
+              title:          g.title,
+              city:           g.city,
+              gameDateTime:   g.gameDateTime,
+              confirmedCount: g.confirmedCount,
+              minPlayers:     g.minPlayers,
+              lat:            g.latitude!,
+              lng:            g.longitude!,
+            }))}
+          />
+        ) : filteredGames.length === 0 ? (
           <p style={mutedText}>
-            {games.length === 0
-              ? "Пока нет ни одной игры. Создайте первую!"
-              : "Нет игр, соответствующих фильтрам."}
+            {activeTab === "my"
+              ? "Вы пока не участвуете ни в одной предстоящей игре."
+              : games.length === 0
+                ? "Пока нет ни одной игры. Создайте первую!"
+                : "Нет игр, соответствующих фильтрам."}
           </p>
         ) : (
           <div style={gridStyle}>
@@ -454,4 +482,44 @@ const clearBtnStyle: React.CSSProperties = {
   cursor: "pointer",
   alignSelf: "flex-end",
   transition: "border-color 0.12s, color 0.12s",
+};
+
+const tabsRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  marginBottom: "16px",
+};
+
+const tabBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  padding: "8px 18px",
+  borderRadius: "10px",
+  border: "1.5px solid #e5e7eb",
+  background: "transparent",
+  color: "var(--muted)",
+  fontFamily: "var(--font-ui)",
+  fontWeight: 600,
+  fontSize: "14px",
+  cursor: "pointer",
+  transition: "border-color 0.12s, color 0.12s",
+};
+
+const activeTabBtnStyle: React.CSSProperties = {
+  ...tabBtnStyle,
+  border: "1.5px solid var(--primary)",
+  background: "var(--primary)",
+  color: "#ffffff",
+};
+
+const myGamesDotStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "6px",
+  right: "6px",
+  width: "8px",
+  height: "8px",
+  borderRadius: "50%",
+  background: "#22c55e",
+  border: "1.5px solid #ffffff",
 };
