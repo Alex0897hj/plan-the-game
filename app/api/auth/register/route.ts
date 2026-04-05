@@ -29,8 +29,6 @@ export async function POST(req: NextRequest) {
       return err(400, "VALIDATION_ERROR", "Пароль должен быть не менее 6 символов");
     }
 
-    const prisma = getPrisma();
-
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return err(409, "EMAIL_ALREADY_EXISTS", "Пользователь с таким email уже существует");
