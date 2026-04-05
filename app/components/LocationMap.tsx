@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * LocationMap — read-only Yandex Map showing a single saved marker.
- * Performs reverse geocoding on mount to always show a human-readable address.
- * The stored `address` prop is shown immediately as a fallback while geocoding runs.
+ * LocationMap — read-only Yandex JS API map for the game detail page.
+ * Shows a marker at saved coordinates and performs reverse geocoding
+ * to display a human-readable address.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -17,8 +17,8 @@ interface Props {
 }
 
 export default function LocationMap({ lat, lng, address, height = 280 }: Props) {
-  const containerRef  = useRef<HTMLDivElement>(null);
-  const inited        = useRef(false);
+  const containerRef      = useRef<HTMLDivElement>(null);
+  const inited            = useRef(false);
   const [resolvedAddress, setResolvedAddress] = useState<string>(address ?? "");
 
   useEffect(() => {
@@ -33,12 +33,12 @@ export default function LocationMap({ lat, lng, address, height = 280 }: Props) 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ymaps = (window as any).ymaps;
 
-      // Render map + marker
       const map = new ymaps.Map(containerRef.current, {
         center:   coords,
         zoom:     15,
         controls: ["zoomControl"],
       });
+
       map.geoObjects.add(
         new ymaps.Placemark(coords, {}, { preset: "islands#redDotIcon" }),
       );
@@ -47,9 +47,7 @@ export default function LocationMap({ lat, lng, address, height = 280 }: Props) 
       try {
         const result = await ymaps.geocode(coords, { results: 1 });
         const geoObj = result.geoObjects.get(0);
-        if (geoObj) {
-          setResolvedAddress(geoObj.getAddressLine());
-        }
+        if (geoObj) setResolvedAddress(geoObj.getAddressLine());
       } catch {
         // keep whatever was passed as prop
       }

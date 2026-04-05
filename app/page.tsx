@@ -14,6 +14,24 @@ interface Game {
   createdBy:      { id: number; email: string; name: string | null };
   confirmedCount: number;
   thinkingCount:  number;
+  latitude:       number | null;
+  longitude:      number | null;
+}
+
+const STATIC_MAP_KEY = "7ae6ca34-545f-4776-a78b-b5fa4c11d71f";
+
+function staticMapUrl(lat: number, lng: number): string {
+  const ll = `${lng},${lat}`;   // Static API: longitude first, then latitude
+  const pt = `${lng},${lat},pm2rdm`;
+  return (
+    `https://static-maps.yandex.ru/v1` +
+    `?apikey=${STATIC_MAP_KEY}` +
+    `&ll=${ll}` +
+    `&z=14` +
+    `&size=600,140` +
+    `&pt=${pt}` +
+    `&lang=ru_RU`
+  );
 }
 
 export default function Home() {
@@ -74,8 +92,24 @@ function GameCard({ game }: { game: Game }) {
   };
   const badge = statusColors[game.status];
 
+  const hasMap = game.latitude != null && game.longitude != null;
+
   return (
     <Link href={`/games/${game.id}`} style={cardStyle}>
+
+      {/* Static map preview */}
+      {hasMap && (
+        <div style={mapPreviewWrapStyle}>
+          <img
+            src={staticMapUrl(game.latitude!, game.longitude!)}
+            alt="Карта"
+            style={mapPreviewImgStyle}
+          />
+        </div>
+      )}
+
+      {/* Card body */}
+      <div style={cardBodyStyle}>
 
       {/* City + badge */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "10px" }}>
@@ -125,6 +159,7 @@ function GameCard({ game }: { game: Game }) {
         Организатор: {game.createdBy.name ?? game.createdBy.email}
       </p>
 
+      </div>{/* end card body */}
     </Link>
   );
 }
@@ -152,11 +187,12 @@ const gridStyle: React.CSSProperties = {
 
 const cardStyle: React.CSSProperties = {
   background: "#ffffff", borderRadius: "var(--radius-lg)",
-  padding: "20px", boxShadow: "var(--shadow-drop)",
+  boxShadow: "var(--shadow-drop)",
   display: "flex", flexDirection: "column",
   textDecoration: "none", color: "inherit",
   transition: "box-shadow 0.15s, transform 0.15s",
   cursor: "pointer",
+  overflow: "hidden",
 };
 
 const cityStyle: React.CSSProperties = {
@@ -197,4 +233,16 @@ const creatorStyle: React.CSSProperties = {
 
 const mutedText: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontSize: "15px", color: "var(--muted)",
+};
+
+const mapPreviewWrapStyle: React.CSSProperties = {
+  width: "100%", height: "140px", overflow: "hidden", flexShrink: 0,
+};
+
+const mapPreviewImgStyle: React.CSSProperties = {
+  width: "100%", height: "100%", objectFit: "cover", display: "block",
+};
+
+const cardBodyStyle: React.CSSProperties = {
+  padding: "16px 20px 20px", display: "flex", flexDirection: "column", flex: 1,
 };
