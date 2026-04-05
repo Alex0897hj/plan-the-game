@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { signJWT } from "@/lib/jwt";
 import { randomBytes } from "node:crypto";
@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
       return err(400, "VALIDATION_ERROR", "Некорректный email или пустой пароль");
     }
 
+    const prisma = getPrisma();
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !verifyPassword(password, user.password)) {
       return err(401, "INVALID_CREDENTIALS", "Неверный email или пароль");
@@ -48,7 +50,8 @@ export async function POST(req: NextRequest) {
       user: { id: user.id, email: user.email },
     });
   } catch (e) {
-    console.error("[POST /api/auth/login]", e);
-    return err(500, "INTERNAL_ERROR", "Внутренняя ошибка сервера");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[POST /api/auth/login]", msg);
+    return err(500, "INTERNAL_ERROR", process.env.NODE_ENV === "development" ? msg : "Внутренняя ошибка сервера");
   }
 }

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { signJWT } from "@/lib/jwt";
 import { randomBytes } from "node:crypto";
 
-const ACCESS_TOKEN_TTL  = 15 * 60;         // 15 min
-const REFRESH_TOKEN_TTL = 7 * 24 * 3600;   // 7 days
+const ACCESS_TOKEN_TTL  = 15 * 60;
+const REFRESH_TOKEN_TTL = 7 * 24 * 3600;
 
 function err(status: number, error: string, message: string) {
   return NextResponse.json({ error, message }, { status });
@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
     if (password.length < 6) {
       return err(400, "VALIDATION_ERROR", "Пароль должен быть не менее 6 символов");
     }
+
+    const prisma = getPrisma();
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -54,7 +56,8 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (e) {
-    console.error("[POST /api/auth/register]", e);
-    return err(500, "INTERNAL_ERROR", "Внутренняя ошибка сервера");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[POST /api/auth/register]", msg);
+    return err(500, "INTERNAL_ERROR", process.env.NODE_ENV === "development" ? msg : "Внутренняя ошибка сервера");
   }
 }

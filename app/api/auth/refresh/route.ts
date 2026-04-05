@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { signJWT } from "@/lib/jwt";
 import { randomBytes } from "node:crypto";
 
@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
       return err(400, "VALIDATION_ERROR", "Поле refresh_token обязательно");
     }
 
+    const prisma = getPrisma();
+
     const stored = await prisma.refreshToken.findUnique({
       where:   { token: body.refresh_token },
       include: { user: true },
@@ -29,9 +31,9 @@ export async function POST(req: NextRequest) {
 
     await prisma.refreshToken.delete({ where: { id: stored.id } });
 
-    const { user }          = stored;
-    const accessToken       = signJWT({ sub: user.id, email: user.email }, ACCESS_TOKEN_TTL);
-    const newRefreshToken   = randomBytes(40).toString("hex");
+    const { user }        = stored;
+    const accessToken     = signJWT({ sub: user.id, email: user.email }, ACCESS_TOKEN_TTL);
+    const newRefreshToken = randomBytes(40).toString("hex");
 
     await prisma.refreshToken.create({
       data: {
@@ -43,7 +45,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ access_token: accessToken, refresh_token: newRefreshToken });
   } catch (e) {
-    console.error("[POST /api/auth/refresh]", e);
-    return err(500, "INTERNAL_ERROR", "Внутренняя ошибка сервера");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[POST /api/auth/refresh]", msg);
+    return err(500, "INTERNAL_ERROR", process.env.NODE_ENV === "development" ? msg : "Внутренняя ошибка сервера");
   }
 }

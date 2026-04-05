@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
 
 function err(status: number, error: string, message: string) {
@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
       return err(401, "INVALID_TOKEN", "Токен недействителен или истёк");
     }
 
+    const prisma = getPrisma();
+
     const user = await prisma.user.findUnique({
       where:  { id: payload.sub },
       select: { id: true, email: true },
@@ -29,7 +31,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(user);
   } catch (e) {
-    console.error("[GET /api/auth/me]", e);
-    return err(500, "INTERNAL_ERROR", "Внутренняя ошибка сервера");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[GET /api/auth/me]", msg);
+    return err(500, "INTERNAL_ERROR", process.env.NODE_ENV === "development" ? msg : "Внутренняя ошибка сервера");
   }
 }

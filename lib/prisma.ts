@@ -1,13 +1,24 @@
 import { PrismaClient } from "@prisma/client";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined;
+}
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+function createClient(): PrismaClient {
+  return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["query", "error"] : ["error"],
   });
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Lazy getter: клиент создаётся при первом обращении, внутри try/catch в роуте
+export function getPrisma(): PrismaClient {
+  if (process.env.NODE_ENV === "production") {
+    return createClient();
+  }
+  // Dev: переиспользуем между hot-reload'ами
+  if (!global.__prisma) {
+    global.__prisma = createClient();
+  }
+  return global.__prisma;
+}
