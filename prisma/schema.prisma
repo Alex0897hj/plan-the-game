@@ -6,13 +6,26 @@ datasource db {
   provider = "postgresql"
 }
 
+enum GameStatus {
+  upcoming
+  cancelled
+  completed
+}
+
+enum ParticipantStatus {
+  confirmed
+  thinking
+}
+
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String         @unique
+  id            Int               @id @default(autoincrement())
+  email         String            @unique
   password      String
   name          String?
-  createdAt     DateTime       @default(now())
+  createdAt     DateTime          @default(now())
   refreshTokens RefreshToken[]
+  games         Game[]
+  participations GameParticipant[]
 }
 
 model RefreshToken {
@@ -22,4 +35,36 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model Game {
+  id           Int               @id @default(autoincrement())
+  title        String
+  description  String
+  city         String
+  gameDateTime DateTime
+  minPlayers   Int
+  createdById  Int
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  status       GameStatus        @default(upcoming)
+  createdBy    User              @relation(fields: [createdById], references: [id])
+  participants GameParticipant[]
+
+  @@index([createdById])
+  @@index([status])
+  @@index([gameDateTime])
+}
+
+model GameParticipant {
+  id        Int               @id @default(autoincrement())
+  gameId    Int
+  userId    Int
+  status    ParticipantStatus @default(confirmed)
+  createdAt DateTime          @default(now())
+  game      Game              @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, userId])
+  @@index([userId])
 }

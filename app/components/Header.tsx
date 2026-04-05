@@ -86,6 +86,14 @@ export default function Header() {
       {/* Actions */}
       <nav style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         {user ? (
+          <>
+          <Link
+            href="/create-game"
+            className="btn btn-primary"
+            style={{ fontSize: "15px", padding: "10px 20px", minHeight: "40px", borderRadius: "10px" }}
+          >
+            Создать игру
+          </Link>
           <div ref={dropdownRef} style={{ position: "relative" }}>
             {/* Avatar button */}
             <button
@@ -170,6 +178,7 @@ export default function Header() {
               </div>
             )}
           </div>
+          </>
         ) : (
           <>
             <Link href="/login" className="btn btn-ghost" style={{ fontSize: "15px", padding: "10px 16px", minHeight: "40px" }}>
