@@ -22,7 +22,7 @@ Base URL: `/api`
 | 401         | Не авторизован, токен истёк или невалиден  |
 | 403         | Нет прав на действие                       |
 | 404         | Ресурс не найден                           |
-| 409         | Конфликт (например, email уже занят)       |
+| 409         | Конфликт (например, уже участвует)         |
 | 500         | Внутренняя ошибка сервера                  |
 
 ---
@@ -59,8 +59,6 @@ Base URL: `/api`
 | 400 `VALIDATION_ERROR` | Email некорректный или пароль пустой / слишком короткий |
 | 409 `EMAIL_ALREADY_EXISTS` | Пользователь с таким email уже зарегистрирован |
 
-**Использование на фронте:** После успешного ответа сохранить `access_token` в `localStorage`, сохранить `refresh_token` в `localStorage`, перенаправить пользователя в приложение.
-
 ---
 
 ### POST /auth/login
@@ -93,8 +91,6 @@ Base URL: `/api`
 | 400 `VALIDATION_ERROR` | Email некорректный или пароль пустой |
 | 401 `INVALID_CREDENTIALS` | Неверный email или пароль |
 
-**Использование на фронте:** Сохранить токены, перенаправить пользователя.
-
 ---
 
 ### POST /auth/refresh
@@ -122,13 +118,11 @@ Base URL: `/api`
 | 400 `VALIDATION_ERROR` | Поле `refresh_token` отсутствует |
 | 401 `INVALID_REFRESH_TOKEN` | Токен невалиден, истёк или уже использован |
 
-**Использование на фронте:** Вызывать автоматически при получении 401 в ответ на запрос с `access_token`. После успеха повторить исходный запрос. При ошибке — разлогинить пользователя.
-
 ---
 
 ### GET /auth/me
 
-**Описание:** Получение данных текущего авторизованного пользователя. Требует валидный `access_token` в заголовке.
+**Описание:** Получение данных текущего авторизованного пользователя.
 
 **Headers:**
 ```
@@ -149,8 +143,6 @@ Authorization: Bearer <access_token>
 | 401 `MISSING_TOKEN` | Заголовок `Authorization` отсутствует |
 | 401 `INVALID_TOKEN` | Токен невалиден или истёк |
 
-**Использование на фронте:** Вызывать при инициализации приложения для проверки, авторизован ли пользователь.
-
 ---
 
 ## Токены
@@ -168,7 +160,7 @@ Authorization: Bearer <access_token>
 
 ### GET /games
 
-**Описание:** Список всех игр со статусом `upcoming` или `completed` (отменённые исключены). Не требует авторизации, но если передать `access_token` — в каждом объекте будет поле `myStatus`.
+**Описание:** Список игр со статусом `upcoming` или `completed`. Авторизация опциональна — с токеном возвращается `myStatus`.
 
 **Headers (опционально):**
 ```
@@ -193,9 +185,9 @@ Authorization: Bearer <access_token>
     "updatedAt": "string",
     "createdById": 1,
     "createdBy": { "id": 1, "email": "string", "name": "string" },
-    "confirmedCount": 3,
-    "thinkingCount": 1,
-    "myStatus": "confirmed | thinking | null"
+    "confirmedCount": 4,
+    "waitlistCount": 2,
+    "myStatus": "confirmed | waitlist | null"
   }
 ]
 ```
@@ -204,7 +196,7 @@ Authorization: Bearer <access_token>
 
 ### POST /games
 
-**Описание:** Создание новой игры. Требует авторизацию. Создатель автоматически добавляется как участник со статусом `confirmed`.
+**Описание:** Создание новой игры. Требует авторизацию. Создатель автоматически добавляется в основной состав.
 
 **Headers:**
 ```
@@ -225,19 +217,19 @@ Authorization: Bearer <access_token>
 }
 ```
 
-**Response 201:** Объект созданной игры (без участников).
+**Response 201:** Объект созданной игры.
 
 **Ошибки:**
 | Код | Описание |
 | --- | -------- |
-| 400 `VALIDATION_ERROR` | Одно из обязательных полей отсутствует или некорректно; `latitude`/`longitude` обязательны |
+| 400 `VALIDATION_ERROR` | Обязательное поле отсутствует или некорректно; `latitude`/`longitude` обязательны |
 | 401 `UNAUTHORIZED` | Не авторизован |
 
 ---
 
 ### GET /games/:id
 
-**Описание:** Детальная информация об игре, включая списки участников. Авторизация опциональна — с токеном возвращается `myStatus`.
+**Описание:** Детальная информация об игре, включая списки участников и waitlist.
 
 **Headers (опционально):**
 ```
@@ -261,13 +253,15 @@ Authorization: Bearer <access_token>
   "updatedAt": "string",
   "createdById": 1,
   "createdBy": { "id": 1, "email": "string", "name": "string" },
-  "confirmedCount": 3,
-  "thinkingCount": 1,
+  "confirmedCount": 4,
+  "waitlistCount": 2,
   "confirmedList": [{ "id": 1, "email": "string", "name": "string" }],
-  "thinkingList": [{ "id": 2, "email": "string", "name": "string" }],
-  "myStatus": "confirmed | thinking | null"
+  "waitlist":      [{ "id": 2, "email": "string", "name": "string" }],
+  "myStatus": "confirmed | waitlist | null"
 }
 ```
+
+`waitlist` отсортирован по `createdAt ASC` — порядок отражает приоритет в очереди.
 
 **Ошибки:**
 | Код | Описание |
@@ -279,7 +273,7 @@ Authorization: Bearer <access_token>
 
 ### PATCH /games/:id
 
-**Описание:** Отмена игры. Только создатель может отменить; игра должна быть в статусе `upcoming`.
+**Описание:** Отмена игры создателем. Только `status: "cancelled"` допустимо.
 
 **Headers:**
 ```
@@ -296,9 +290,9 @@ Authorization: Bearer <access_token>
 **Ошибки:**
 | Код | Описание |
 | --- | -------- |
-| 400 `VALIDATION_ERROR` | `status` не равен `cancelled` или некорректный id |
+| 400 `VALIDATION_ERROR` | `status` не равен `cancelled` |
 | 401 `UNAUTHORIZED` | Не авторизован |
-| 403 `FORBIDDEN` | Текущий пользователь не является создателем |
+| 403 `FORBIDDEN` | Не является создателем |
 | 404 `NOT_FOUND` | Игра не найдена |
 | 409 `CONFLICT` | Игра не в статусе `upcoming` |
 
@@ -306,25 +300,24 @@ Authorization: Bearer <access_token>
 
 ### POST /games/:id/participate
 
-**Описание:** Присоединиться к игре или изменить статус участия. Создатель не может использовать этот эндпоинт (его статус фиксирован как `confirmed`).
+**Описание:** Присоединиться к игре. Тело запроса не нужно.
+
+- Если `confirmedCount < minPlayers` → попадает в основной состав (`isWaitlist = false`)
+- Иначе → попадает в waitlist (`isWaitlist = true`)
+- Создатель не может вызвать этот эндпоинт (уже в составе)
 
 **Headers:**
 ```
 Authorization: Bearer <access_token>
 ```
 
-**Request:**
-```json
-{ "status": "confirmed | thinking" }
-```
-
-**Response 200:**
+**Response 201:**
 ```json
 {
   "id": 1,
   "gameId": 1,
   "userId": 2,
-  "status": "confirmed",
+  "isWaitlist": false,
   "createdAt": "string"
 }
 ```
@@ -332,16 +325,21 @@ Authorization: Bearer <access_token>
 **Ошибки:**
 | Код | Описание |
 | --- | -------- |
-| 400 `VALIDATION_ERROR` | `status` имеет недопустимое значение или некорректный id |
 | 401 `UNAUTHORIZED` | Не авторизован |
-| 403 `FORBIDDEN` | Создатель пытается изменить свой статус участия |
+| 403 `FORBIDDEN` | Создатель уже является участником |
 | 404 `NOT_FOUND` | Игра не найдена |
+| 409 `CONFLICT` | Игра не в статусе `upcoming` |
+| 409 `ALREADY_JOINED` | Уже участвует в этой игре |
 
 ---
 
 ### DELETE /games/:id/participate
 
-**Описание:** Покинуть игру (удалить запись участия). Создатель не может покинуть созданную им игру.
+**Описание:** Покинуть игру или выйти из waitlist.
+
+- Если пользователь в **основном составе**: удаляется, первый в waitlist (`createdAt ASC`) автоматически становится участником (FIFO-промоушен)
+- Если пользователь в **waitlist**: просто удаляется из очереди
+- Создатель не может покинуть свою игру
 
 **Headers:**
 ```
@@ -353,7 +351,24 @@ Authorization: Bearer <access_token>
 **Ошибки:**
 | Код | Описание |
 | --- | -------- |
-| 400 `VALIDATION_ERROR` | Некорректный id |
 | 401 `UNAUTHORIZED` | Не авторизован |
-| 403 `FORBIDDEN` | Создатель не может покинуть свою игру |
-| 404 `NOT_FOUND` | Игра не найдена |
+| 403 `FORBIDDEN` | Создатель не может покинуть игру |
+| 404 `NOT_FOUND` | Игра не найдена или пользователь не участвует |
+
+---
+
+## Cron
+
+### GET /cron/games/auto-cancel
+
+**Описание:** Автоматически отменяет предстоящие игры, которые начнутся менее чем через 6 часов и не набрали `minPlayers` участников в основном составе. Вызывается внешним планировщиком (например, Vercel Cron).
+
+Если задана переменная окружения `CRON_SECRET`, эндпоинт требует заголовок `Authorization: Bearer <CRON_SECRET>`.
+
+**Response 200:**
+```json
+{
+  "cancelled": 2,
+  "ids": [3, 7]
+}
+```

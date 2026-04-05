@@ -37,8 +37,8 @@ interface Game {
   status:         "upcoming" | "cancelled" | "completed";
   createdBy:      { id: number; email: string; name: string | null };
   confirmedCount: number;
-  thinkingCount:  number;
-  myStatus:       "confirmed" | "thinking" | null;
+  waitlistCount:  number;
+  myStatus:       "confirmed" | "waitlist" | null;
   latitude:       number | null;
   longitude:      number | null;
 }
@@ -303,9 +303,9 @@ function GameCard({ game }: { game: Game }) {
           </svg>
           Участвуют: <strong>{game.confirmedCount}/{game.minPlayers}</strong>
         </span>
-        {game.thinkingCount > 0 && (
+        {game.waitlistCount > 0 && (
           <span style={{ ...statChipStyle, background: "#fffbeb", color: "#b45309" }}>
-            Думают: <strong>{game.thinkingCount}</strong>
+            Очередь: <strong>{game.waitlistCount}</strong>
           </span>
         )}
       </div>

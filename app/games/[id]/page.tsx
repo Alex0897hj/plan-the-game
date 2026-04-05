@@ -5,8 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { getAccessToken } from "@/app/lib/auth-api";
 import LocationMap from "@/app/components/LocationMap";
 
-type ParticipantStatus = "confirmed" | "thinking";
-
 interface Player {
   id:    number;
   email: string;
@@ -23,10 +21,10 @@ interface Game {
   status:         "upcoming" | "cancelled" | "completed";
   createdBy:      Player;
   confirmedCount: number;
-  thinkingCount:  number;
+  waitlistCount:  number;
   confirmedList:  Player[];
-  thinkingList:   Player[];
-  myStatus:       ParticipantStatus | null;
+  waitlist:       Player[];
+  myStatus:       "confirmed" | "waitlist" | null;
   latitude:       number | null;
   longitude:      number | null;
   address:        string | null;
@@ -54,24 +52,26 @@ export default function GamePage() {
 
   useEffect(() => { fetchGame(); }, [fetchGame]);
 
-  async function participate(status: ParticipantStatus) {
+  async function join() {
     const token = getAccessToken();
     if (!token || !game) return;
     setActing(true);
+    await fetch(`/api/games/${game.id}/participate`, {
+      method:  "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await fetchGame();
+    setActing(false);
+  }
 
-    if (game.myStatus === status) {
-      await fetch(`/api/games/${game.id}/participate`, {
-        method:  "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } else {
-      await fetch(`/api/games/${game.id}/participate`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ status }),
-      });
-    }
-
+  async function leave() {
+    const token = getAccessToken();
+    if (!token || !game) return;
+    setActing(true);
+    await fetch(`/api/games/${game.id}/participate`, {
+      method:  "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
     await fetchGame();
     setActing(false);
   }
@@ -89,7 +89,7 @@ export default function GamePage() {
     router.push("/");
   }
 
-  if (loading)          return <PageShell><p style={mutedText}>Загрузка…</p></PageShell>;
+  if (loading)           return <PageShell><p style={mutedText}>Загрузка…</p></PageShell>;
   if (notFound || !game) return <PageShell><p style={mutedText}>Игра не найдена.</p></PageShell>;
 
   const currentUser    = (() => { try { return JSON.parse(localStorage.getItem("user") ?? "null"); } catch { return null; } })();
@@ -103,6 +103,10 @@ export default function GamePage() {
     hour: "2-digit", minute: "2-digit",
   });
 
+  // Show 6-hour warning if game is upcoming and within 6 hours
+  const hoursUntil = (new Date(game.gameDateTime).getTime() - Date.now()) / 3_600_000;
+  const showDeadlineWarning = game.status === "upcoming" && hoursUntil > 0 && hoursUntil <= 6;
+
   const statusColors: Record<Game["status"], { bg: string; color: string; label: string }> = {
     upcoming:  { bg: "#eff6ff", color: "#2563eb", label: "Скоро"     },
     completed: { bg: "#f0fdf4", color: "#16a34a", label: "Завершена" },
@@ -113,7 +117,7 @@ export default function GamePage() {
   return (
     <PageShell>
 
-      {/* ── Confirmation modal ── */}
+      {/* ── Cancel-game confirmation modal ── */}
       {showConfirm && (
         <div style={overlayStyle} onClick={() => setShowConfirm(false)}>
           <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
@@ -122,17 +126,11 @@ export default function GamePage() {
               Игра «{game.title}» будет отмечена как отменённая. Это действие нельзя отменить.
             </p>
             <div style={{ display: "flex", gap: "10px" }}>
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="btn btn-ghost"
-                style={{ flex: 1, borderRadius: "10px" }}
-              >
+              <button onClick={() => setShowConfirm(false)} className="btn btn-ghost"
+                style={{ flex: 1, borderRadius: "10px" }}>
                 Назад
               </button>
-              <button
-                onClick={cancelGame}
-                disabled={cancelling}
-                className="btn"
+              <button onClick={cancelGame} disabled={cancelling} className="btn"
                 style={{
                   flex: 1, borderRadius: "10px",
                   background: "var(--error, #dc2626)", color: "#fff",
@@ -140,8 +138,7 @@ export default function GamePage() {
                   opacity: cancelling ? 0.7 : 1,
                   fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "15px",
                   padding: "10px 20px", minHeight: "40px",
-                }}
-              >
+                }}>
                 {cancelling ? "Отмена…" : "Отменить игру"}
               </button>
             </div>
@@ -155,14 +152,9 @@ export default function GamePage() {
         <div style={mainColStyle}>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button onClick={() => router.back()} style={backBtnStyle}>
-              ← Назад
-            </button>
+            <button onClick={() => router.back()} style={backBtnStyle}>← Назад</button>
             {canCancel && (
-              <button
-                onClick={() => setShowConfirm(true)}
-                style={cancelBtnStyle}
-              >
+              <button onClick={() => setShowConfirm(true)} style={cancelBtnStyle}>
                 Отменить игру
               </button>
             )}
@@ -171,36 +163,45 @@ export default function GamePage() {
           {/* Info card */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-              <span style={cityStyle}>
-                <PinIcon /> {game.city}
-              </span>
+              <span style={cityStyle}><PinIcon /> {game.city}</span>
               <span style={{ ...badgeBase, background: badge.bg, color: badge.color }}>
                 {badge.label}
               </span>
             </div>
 
             <h1 style={titleStyle}>{game.title}</h1>
-
-            <p style={metaRowStyle}>
-              <CalIcon /> {dateStr}
-            </p>
-
+            <p style={metaRowStyle}><CalIcon /> {dateStr}</p>
             <p style={descStyle}>{game.description}</p>
-
             <p style={organizerStyle}>
               Организатор: <strong>{game.createdBy.name ?? game.createdBy.email}</strong>
             </p>
           </div>
 
-          {/* Map — only rendered when coordinates exist */}
+          {/* 6-hour deadline warning */}
+          {showDeadlineWarning && (
+            <div style={warningCardStyle}>
+              <span style={{ fontSize: "16px" }}>⚠️</span>
+              <p style={{ margin: 0, fontFamily: "var(--font-ui)", fontSize: "13px", lineHeight: "1.5" }}>
+                <strong>До игры менее 6 часов.</strong> Если к этому моменту не наберётся{" "}
+                {game.minPlayers} участников в основном составе, игра будет автоматически отменена.
+              </p>
+            </div>
+          )}
+
+          {/* General deadline info */}
+          {game.status === "upcoming" && !showDeadlineWarning && (
+            <div style={infoCardStyle}>
+              <p style={{ margin: 0, fontFamily: "var(--font-ui)", fontSize: "13px", color: "var(--muted)", lineHeight: "1.5" }}>
+                Если за 6 часов до начала не наберётся {game.minPlayers} участников в основном составе,
+                игра будет автоматически отменена.
+              </p>
+            </div>
+          )}
+
+          {/* Map */}
           {game.latitude != null && game.longitude != null && (
             <div style={cardStyle}>
-              <LocationMap
-                lat={game.latitude}
-                lng={game.longitude}
-                address={game.address}
-                height={280}
-              />
+              <LocationMap lat={game.latitude} lng={game.longitude} address={game.address} height={280} />
             </div>
           )}
 
@@ -208,38 +209,43 @@ export default function GamePage() {
           {canParticipate && (
             <div style={cardStyle}>
               <p style={sectionLabel}>Ваш статус</p>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  disabled={acting}
-                  onClick={() => participate("confirmed")}
-                  style={{
-                    ...actionBtn,
-                    background: game.myStatus === "confirmed" ? "var(--primary)" : "transparent",
-                    color:      game.myStatus === "confirmed" ? "#fff" : "var(--primary)",
-                    border:     "1.5px solid var(--primary)",
-                    opacity:    acting ? 0.6 : 1,
-                  }}
-                >
-                  {game.myStatus === "confirmed" ? "Участвую ✓" : "Участвовать"}
-                </button>
-                <button
-                  disabled={acting}
-                  onClick={() => participate("thinking")}
-                  style={{
-                    ...actionBtn,
-                    background: game.myStatus === "thinking" ? "#f59e0b" : "transparent",
-                    color:      game.myStatus === "thinking" ? "#fff" : "#b45309",
-                    border:     "1.5px solid #f59e0b",
-                    opacity:    acting ? 0.6 : 1,
-                  }}
-                >
-                  {game.myStatus === "thinking" ? "Думаю… ✓" : "Думаю"}
-                </button>
-              </div>
-              {game.myStatus && (
-                <p style={{ ...mutedText, marginTop: "8px", fontSize: "12px" }}>
-                  Нажмите на активную кнопку повторно, чтобы отменить участие.
-                </p>
+
+              {game.myStatus === null && (
+                <>
+                  <button disabled={acting} onClick={join} style={{ ...actionBtn, background: "var(--primary)", color: "#fff", border: "none", opacity: acting ? 0.6 : 1 }}>
+                    {acting ? "…" : "Участвовать"}
+                  </button>
+                  {game.confirmedCount >= game.minPlayers && (
+                    <p style={{ ...mutedText, marginTop: "8px", fontSize: "12px" }}>
+                      Основной состав заполнен — вы попадёте в список ожидания.
+                    </p>
+                  )}
+                </>
+              )}
+
+              {game.myStatus === "confirmed" && (
+                <>
+                  <div style={statusPillStyle("#f0fdf4", "#16a34a")}>
+                    ✓ Вы в основном составе
+                  </div>
+                  <button disabled={acting} onClick={leave} style={{ ...actionBtn, background: "transparent", color: "var(--error, #dc2626)", border: "1.5px solid var(--error, #dc2626)", marginTop: "10px", opacity: acting ? 0.6 : 1 }}>
+                    {acting ? "…" : "Выйти из игры"}
+                  </button>
+                </>
+              )}
+
+              {game.myStatus === "waitlist" && (
+                <>
+                  <div style={statusPillStyle("#fffbeb", "#b45309")}>
+                    🕐 Вы в списке ожидания
+                  </div>
+                  <p style={{ ...mutedText, marginTop: "8px", fontSize: "12px" }}>
+                    Если кто-то из основного состава выйдет, вы автоматически займёте его место (FIFO).
+                  </p>
+                  <button disabled={acting} onClick={leave} style={{ ...actionBtn, background: "transparent", color: "var(--muted)", border: "1.5px solid #e5e7eb", marginTop: "10px", opacity: acting ? 0.6 : 1 }}>
+                    {acting ? "…" : "Покинуть очередь"}
+                  </button>
+                </>
               )}
             </div>
           )}
@@ -248,9 +254,10 @@ export default function GamePage() {
         {/* ── Side column ── */}
         <div style={sideColStyle}>
 
+          {/* Confirmed list */}
           <div style={cardStyle}>
             <p style={sectionLabel}>
-              Участвуют
+              Основной состав
               <span style={countBadge}>{game.confirmedCount}/{game.minPlayers}</span>
             </p>
             {game.confirmedList.length === 0
@@ -268,27 +275,34 @@ export default function GamePage() {
             }
           </div>
 
-          <div style={cardStyle}>
-            <p style={sectionLabel}>
-              Думают
-              <span style={{ ...countBadge, background: "#fffbeb", color: "#b45309" }}>
-                {game.thinkingCount}
-              </span>
-            </p>
-            {game.thinkingList.length === 0
-              ? <p style={mutedText}>Пока никого нет</p>
-              : (
-                <ul style={listStyle}>
-                  {game.thinkingList.map((p) => (
-                    <li key={p.id} style={playerRowStyle}>
-                      <Avatar email={p.email} />
-                      <span style={playerName}>{p.name ?? p.email}</span>
-                    </li>
-                  ))}
-                </ul>
-              )
-            }
-          </div>
+          {/* Waitlist */}
+          {(game.waitlistCount > 0 || game.myStatus === "waitlist") && (
+            <div style={cardStyle}>
+              <p style={sectionLabel}>
+                Список ожидания
+                <span style={{ ...countBadge, background: "#fffbeb", color: "#b45309" }}>
+                  {game.waitlistCount}
+                </span>
+              </p>
+              {game.waitlist.length === 0
+                ? <p style={mutedText}>Очередь пуста</p>
+                : (
+                  <ul style={listStyle}>
+                    {game.waitlist.map((p, i) => (
+                      <li key={p.id} style={playerRowStyle}>
+                        <span style={waitlistPositionStyle}>{i + 1}</span>
+                        <Avatar email={p.email} />
+                        <span style={playerName}>{p.name ?? p.email}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              }
+              <p style={{ ...mutedText, marginTop: "10px", fontSize: "11px" }}>
+                При выходе участника из основного состава первый в очереди автоматически занимает его место.
+              </p>
+            </div>
+          )}
 
         </div>
       </div>
@@ -337,6 +351,15 @@ function CalIcon() {
   );
 }
 
+function statusPillStyle(bg: string, color: string): React.CSSProperties {
+  return {
+    display: "inline-flex", alignItems: "center", gap: "6px",
+    padding: "6px 12px", borderRadius: "100px",
+    background: bg, color,
+    fontFamily: "var(--font-ui)", fontSize: "13px", fontWeight: 600,
+  };
+}
+
 /* ─── Styles ─────────────────────────────────────────────── */
 
 const layoutStyle: React.CSSProperties = {
@@ -354,6 +377,17 @@ const sideColStyle: React.CSSProperties = {
 const cardStyle: React.CSSProperties = {
   background: "#ffffff", borderRadius: "var(--radius-lg)",
   padding: "20px", boxShadow: "var(--shadow-drop)",
+};
+
+const warningCardStyle: React.CSSProperties = {
+  display: "flex", alignItems: "flex-start", gap: "10px",
+  background: "#fff7ed", borderRadius: "var(--radius-lg)",
+  padding: "14px 16px", border: "1.5px solid #fed7aa",
+};
+
+const infoCardStyle: React.CSSProperties = {
+  background: "#f8fafc", borderRadius: "var(--radius-lg)",
+  padding: "12px 16px", border: "1px solid #e5e7eb",
 };
 
 const backBtnStyle: React.CSSProperties = {
@@ -412,15 +446,22 @@ const playerRowStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: "8px",
 };
 
+const waitlistPositionStyle: React.CSSProperties = {
+  width: "18px", flexShrink: 0,
+  fontFamily: "var(--font-ui)", fontSize: "11px", fontWeight: 700,
+  color: "var(--muted)", textAlign: "right",
+};
+
 const playerName: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontSize: "14px", color: "var(--foreground)",
   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
 };
 
 const actionBtn: React.CSSProperties = {
-  flex: 1, padding: "9px 14px", borderRadius: "8px", cursor: "pointer",
+  display: "block", width: "100%",
+  padding: "10px 14px", borderRadius: "8px", cursor: "pointer",
   fontFamily: "var(--font-ui)", fontSize: "14px", fontWeight: 600,
-  transition: "opacity 0.12s",
+  transition: "opacity 0.12s", textAlign: "center",
 };
 
 const mutedText: React.CSSProperties = {
@@ -440,38 +481,23 @@ const cancelBtnStyle: React.CSSProperties = {
 };
 
 const overlayStyle: React.CSSProperties = {
-  position:        "fixed",
-  inset:           0,
-  background:      "rgba(0,0,0,0.4)",
-  display:         "flex",
-  alignItems:      "center",
-  justifyContent:  "center",
-  zIndex:          500,
-  padding:         "24px",
+  position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  zIndex: 500, padding: "24px",
 };
 
 const modalStyle: React.CSSProperties = {
-  background:   "#ffffff",
-  borderRadius: "var(--radius-lg)",
-  padding:      "28px 28px 24px",
-  maxWidth:     "420px",
-  width:        "100%",
-  boxShadow:    "0 8px 32px rgba(0,0,0,0.18)",
+  background: "#ffffff", borderRadius: "var(--radius-lg)",
+  padding: "28px 28px 24px", maxWidth: "420px", width: "100%",
+  boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
 };
 
 const modalTitleStyle: React.CSSProperties = {
-  fontFamily:    "var(--font-ui)",
-  fontWeight:    800,
-  fontSize:      "18px",
-  letterSpacing: "-0.3px",
-  color:         "var(--foreground)",
-  margin:        "0 0 10px",
+  fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "18px",
+  letterSpacing: "-0.3px", color: "var(--foreground)", margin: "0 0 10px",
 };
 
 const modalBodyStyle: React.CSSProperties = {
-  fontFamily:  "var(--font-ui)",
-  fontSize:    "14px",
-  color:       "var(--muted)",
-  lineHeight:  "1.5",
-  margin:      "0 0 20px",
+  fontFamily: "var(--font-ui)", fontSize: "14px",
+  color: "var(--muted)", lineHeight: "1.5", margin: "0 0 20px",
 };

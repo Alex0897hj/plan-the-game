@@ -14,12 +14,6 @@
 | `cancelled` | Game was cancelled |
 | `completed` | Game has taken place |
 
-### `ParticipantStatus`
-| Value | Description |
-|-------|-------------|
-| `confirmed` | User confirmed participation |
-| `thinking` | User is considering participation |
-
 ---
 
 ## Models
@@ -63,7 +57,7 @@
 | `description` | `String` | |
 | `city` | `String` | |
 | `gameDateTime` | `DateTime` | |
-| `minPlayers` | `Int` | |
+| `minPlayers` | `Int` | Minimum to start the game |
 | `latitude` | `Float?` | Optional |
 | `longitude` | `Float?` | Optional |
 | `address` | `String?` | Optional |
@@ -86,15 +80,21 @@
 | `id` | `Int` | PK, auto-increment |
 | `gameId` | `Int` | FK → `Game.id` |
 | `userId` | `Int` | FK → `User.id` |
-| `status` | `ParticipantStatus` | Default: `confirmed` |
+| `isWaitlist` | `Boolean` | Default: `false`. `true` = waitlist, `false` = main roster |
 | `createdAt` | `DateTime` | Default: now |
 
 **Relations:**
 - Belongs to `Game` (cascade delete)
 - Belongs to `User` (cascade delete)
 
-**Indexes:** `userId`  
-**Unique constraint:** `(gameId, userId)` — a user can only join a game once
+**Indexes:** `userId`, `(gameId, isWaitlist)`  
+**Unique constraint:** `(gameId, userId)` — a user can only have one record per game
+
+**Participant logic:**
+- First `minPlayers` participants get `isWaitlist = false` (main roster)
+- Subsequent participants get `isWaitlist = true` (waitlist, FIFO order)
+- When a main-roster participant leaves, the first waitlist member (`createdAt ASC`) is automatically promoted to `isWaitlist = false`
+- If a game has fewer main-roster participants than `minPlayers` at 6 hours before `gameDateTime`, it is auto-cancelled
 
 ---
 

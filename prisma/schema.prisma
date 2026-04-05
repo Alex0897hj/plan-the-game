@@ -12,10 +12,6 @@ enum GameStatus {
   completed
 }
 
-enum ParticipantStatus {
-  confirmed
-  thinking
-}
 
 model User {
   id            Int               @id @default(autoincrement())
@@ -61,14 +57,15 @@ model Game {
 }
 
 model GameParticipant {
-  id        Int               @id @default(autoincrement())
-  gameId    Int
-  userId    Int
-  status    ParticipantStatus @default(confirmed)
-  createdAt DateTime          @default(now())
-  game      Game              @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  gameId     Int
+  userId     Int
+  isWaitlist Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([gameId, userId])
   @@index([userId])
+  @@index([gameId, isWaitlist])
 }

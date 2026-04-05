@@ -32,18 +32,19 @@ export async function GET(
 
     if (!game) return err(404, "NOT_FOUND", "Игра не найдена");
 
-    const confirmed = game.participants.filter((p) => p.status === "confirmed");
-    const thinking  = game.participants.filter((p) => p.status === "thinking");
-    const myStatus  = me
-      ? (game.participants.find((p) => p.userId === me.sub)?.status ?? null)
+    const confirmed = game.participants.filter((p) => !p.isWaitlist);
+    const waitlist  = game.participants.filter((p) =>  p.isWaitlist);
+    const myParticipant = me ? game.participants.find((p) => p.userId === me.sub) : undefined;
+    const myStatus = myParticipant
+      ? (myParticipant.isWaitlist ? "waitlist" : "confirmed")
       : null;
 
     return NextResponse.json({
       ...game,
       confirmedCount: confirmed.length,
-      thinkingCount:  thinking.length,
+      waitlistCount:  waitlist.length,
       confirmedList:  confirmed.map((p) => p.user),
-      thinkingList:   thinking.map((p) => p.user),
+      waitlist:       waitlist.map((p) => p.user),
       myStatus,
       participants:   undefined,
     });
@@ -75,9 +76,9 @@ export async function PATCH(
       return err(400, "VALIDATION_ERROR", "Допустимое значение status: cancelled");
 
     const game = await prisma.game.findUnique({ where: { id: gameId } });
-    if (!game)                      return err(404, "NOT_FOUND",   "Игра не найдена");
-    if (game.createdById !== me.sub) return err(403, "FORBIDDEN",  "Только создатель может отменить игру");
-    if (game.status !== "upcoming") return err(409, "CONFLICT",    "Можно отменить только предстоящую игру");
+    if (!game)                       return err(404, "NOT_FOUND",  "Игра не найдена");
+    if (game.createdById !== me.sub)  return err(403, "FORBIDDEN", "Только создатель может отменить игру");
+    if (game.status !== "upcoming")   return err(409, "CONFLICT",  "Можно отменить только предстоящую игру");
 
     const updated = await prisma.game.update({
       where: { id: gameId },

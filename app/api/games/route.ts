@@ -22,21 +22,22 @@ export async function GET(req: NextRequest) {
       orderBy: { gameDateTime: "asc" },
       include: {
         createdBy:    { select: { id: true, email: true, name: true } },
-        participants: { select: { userId: true, status: true } },
+        participants: { select: { userId: true, isWaitlist: true } },
       },
     });
 
     const result = games.map((g) => {
-      const confirmed = g.participants.filter((p) => p.status === "confirmed").length;
-      const thinking  = g.participants.filter((p) => p.status === "thinking").length;
-      const myStatus  = me
-        ? (g.participants.find((p) => p.userId === me.sub)?.status ?? null)
+      const confirmedCount = g.participants.filter((p) => !p.isWaitlist).length;
+      const waitlistCount  = g.participants.filter((p) =>  p.isWaitlist).length;
+      const myParticipant  = me ? g.participants.find((p) => p.userId === me.sub) : undefined;
+      const myStatus = myParticipant
+        ? (myParticipant.isWaitlist ? "waitlist" : "confirmed")
         : null;
 
       const { participants, ...rest } = g;
       void participants;
 
-      return { ...rest, confirmedCount: confirmed, thinkingCount: thinking, myStatus };
+      return { ...rest, confirmedCount, waitlistCount, myStatus };
     });
 
     return NextResponse.json(result);
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
         address:      typeof address === "string" ? address.trim() : null,
         createdById:  user.sub,
         participants: {
-          create: { userId: user.sub, status: "confirmed" },
+          create: { userId: user.sub, isWaitlist: false },
         },
       },
     });
