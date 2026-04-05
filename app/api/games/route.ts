@@ -54,18 +54,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     if (!body) return err(400, "VALIDATION_ERROR", "Тело запроса обязательно");
 
-    const { title, description, city, gameDateTime, minPlayers } = body;
+    const { title, description, city, gameDateTime, minPlayers, latitude, longitude, address } = body;
 
     if (!title || typeof title !== "string" || !title.trim())
       return err(400, "VALIDATION_ERROR", "Название обязательно");
     if (!description || typeof description !== "string" || !description.trim())
       return err(400, "VALIDATION_ERROR", "Описание обязательно");
-    if (!city || typeof city !== "string" || !city.trim())
-      return err(400, "VALIDATION_ERROR", "Город обязателен");
+    if (typeof city !== "string")
+      return err(400, "VALIDATION_ERROR", "Некорректное значение города");
     if (!gameDateTime || isNaN(new Date(gameDateTime).getTime()))
       return err(400, "VALIDATION_ERROR", "Укажите корректную дату и время");
     if (!minPlayers || typeof minPlayers !== "number" || minPlayers < 2)
       return err(400, "VALIDATION_ERROR", "Минимальное количество игроков — 2");
+    if (typeof latitude !== "number" || typeof longitude !== "number")
+      return err(400, "VALIDATION_ERROR", "Отметьте место проведения на карте");
 
     const game = await prisma.game.create({
       data: {
@@ -74,6 +76,9 @@ export async function POST(req: NextRequest) {
         city:         city.trim(),
         gameDateTime: new Date(gameDateTime),
         minPlayers,
+        latitude,
+        longitude,
+        address:      typeof address === "string" ? address.trim() : null,
         createdById:  user.sub,
       },
     });

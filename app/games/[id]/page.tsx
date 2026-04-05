@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getAccessToken } from "@/app/lib/auth-api";
+import LocationMap from "@/app/components/LocationMap";
 
 type ParticipantStatus = "confirmed" | "thinking";
 
@@ -26,15 +27,19 @@ interface Game {
   confirmedList:  Player[];
   thinkingList:   Player[];
   myStatus:       ParticipantStatus | null;
+  latitude:       number | null;
+  longitude:      number | null;
+  address:        string | null;
 }
 
 export default function GamePage() {
-  const { id }   = useParams<{ id: string }>();
-  const router   = useRouter();
-  const [game,    setGame]    = useState<Game | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { id }  = useParams<{ id: string }>();
+  const router  = useRouter();
+
+  const [game,     setGame]     = useState<Game | null>(null);
+  const [loading,  setLoading]  = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [acting,  setActing]  = useState(false);
+  const [acting,   setActing]   = useState(false);
 
   const fetchGame = useCallback(async () => {
     const token   = getAccessToken();
@@ -69,10 +74,10 @@ export default function GamePage() {
     setActing(false);
   }
 
-  if (loading) return <PageShell><p style={mutedText}>Загрузка…</p></PageShell>;
+  if (loading)          return <PageShell><p style={mutedText}>Загрузка…</p></PageShell>;
   if (notFound || !game) return <PageShell><p style={mutedText}>Игра не найдена.</p></PageShell>;
 
-  const isLoggedIn    = !!getAccessToken();
+  const isLoggedIn     = !!getAccessToken();
   const canParticipate = isLoggedIn && game.status === "upcoming";
 
   const dateStr = new Date(game.gameDateTime).toLocaleString("ru-RU", {
@@ -94,12 +99,11 @@ export default function GamePage() {
         {/* ── Main column ── */}
         <div style={mainColStyle}>
 
-          {/* Back */}
           <button onClick={() => router.back()} style={backBtnStyle}>
             ← Назад
           </button>
 
-          {/* Header */}
+          {/* Info card */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
               <span style={cityStyle}>
@@ -123,7 +127,19 @@ export default function GamePage() {
             </p>
           </div>
 
-          {/* Actions */}
+          {/* Map — only rendered when coordinates exist */}
+          {game.latitude != null && game.longitude != null && (
+            <div style={cardStyle}>
+              <LocationMap
+                lat={game.latitude}
+                lng={game.longitude}
+                address={game.address}
+                height={280}
+              />
+            </div>
+          )}
+
+          {/* Participation */}
           {canParticipate && (
             <div style={cardStyle}>
               <p style={sectionLabel}>Ваш статус</p>
@@ -167,7 +183,6 @@ export default function GamePage() {
         {/* ── Side column ── */}
         <div style={sideColStyle}>
 
-          {/* Confirmed */}
           <div style={cardStyle}>
             <p style={sectionLabel}>
               Участвуют
@@ -188,7 +203,6 @@ export default function GamePage() {
             }
           </div>
 
-          {/* Thinking */}
           <div style={cardStyle}>
             <p style={sectionLabel}>
               Думают
@@ -325,7 +339,8 @@ const countBadge: React.CSSProperties = {
 };
 
 const listStyle: React.CSSProperties = {
-  listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "8px",
+  listStyle: "none", margin: 0, padding: 0,
+  display: "flex", flexDirection: "column", gap: "8px",
 };
 
 const playerRowStyle: React.CSSProperties = {

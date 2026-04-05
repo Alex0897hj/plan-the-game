@@ -44,6 +44,9 @@ model Game {
   city         String
   gameDateTime DateTime
   minPlayers   Int
+  latitude     Float?
+  longitude    Float?
+  address      String?
   createdById  Int
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
