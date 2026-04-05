@@ -123,19 +123,24 @@ export default function Home() {
   return (
     <main style={pageStyle}>
 
+      {showMap && (
+        <GamesMap
+          games={mappableGames.map((g) => ({
+            id:             g.id,
+            title:          g.title,
+            city:           g.city,
+            gameDateTime:   g.gameDateTime,
+            confirmedCount: g.confirmedCount,
+            minPlayers:     g.minPlayers,
+            lat:            g.latitude!,
+            lng:            g.longitude!,
+          }))}
+          onClose={() => setShowMap(false)}
+        />
+      )}
+
       <div style={innerStyle}>
-        <div style={topRowStyle}>
-          <h1 style={headingStyle}>Игры</h1>
-          {mappableGames.length > 0 && (
-            <button onClick={() => setShowMap((v) => !v)} style={mapBtnStyle}>
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M1 3.5l4.5-2 5 2 4.5-2v11l-4.5 2-5-2-4.5 2v-11z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                <path d="M5.5 1.5v11M10.5 3.5v11" stroke="currentColor" strokeWidth="1.4"/>
-              </svg>
-              {showMap ? "Скрыть карту" : "Показать на карте"}
-            </button>
-          )}
-        </div>
+        <h1 style={headingStyle}>Игры</h1>
 
         {/* ── Tabs ── */}
         <div style={tabsRowStyle}>
@@ -198,22 +203,19 @@ export default function Home() {
               Сбросить
             </button>
           )}
+
+          {mappableGames.length > 0 && (
+            <button onClick={() => setShowMap(true)} style={{ ...mapBtnStyle, marginLeft: "auto" }}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M1 3.5l4.5-2 5 2 4.5-2v11l-4.5 2-5-2-4.5 2v-11z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+                <path d="M5.5 1.5v11M10.5 3.5v11" stroke="currentColor" strokeWidth="1.4"/>
+              </svg>
+              Показать на карте
+            </button>
+          )}
         </div>
 
-        {showMap ? (
-          <GamesMap
-            games={mappableGames.map((g) => ({
-              id:             g.id,
-              title:          g.title,
-              city:           g.city,
-              gameDateTime:   g.gameDateTime,
-              confirmedCount: g.confirmedCount,
-              minPlayers:     g.minPlayers,
-              lat:            g.latitude!,
-              lng:            g.longitude!,
-            }))}
-          />
-        ) : filteredGames.length === 0 ? (
+        {filteredGames.length === 0 ? (
           <p style={mutedText}>
             {activeTab === "my"
               ? "Вы пока не участвуете ни в одной предстоящей игре."
