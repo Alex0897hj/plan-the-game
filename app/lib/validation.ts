@@ -1,12 +1,28 @@
 export interface ValidationErrors {
-  email?: string;
+  name?:     string;
+  email?:    string;
   password?: string;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validateAuthForm(email: string, password: string): ValidationErrors {
+export function validateAuthForm(
+  email: string,
+  password: string,
+  name?: string,          // required only in register mode
+  isRegister = false,
+): ValidationErrors {
   const errors: ValidationErrors = {};
+
+  if (isRegister) {
+    if (!name || !name.trim()) {
+      errors.name = "Имя обязательно";
+    } else if (name.trim().length < 2) {
+      errors.name = "Имя должно быть не менее 2 символов";
+    } else if (name.trim().length > 50) {
+      errors.name = "Имя не должно превышать 50 символов";
+    }
+  }
 
   if (!email.trim()) {
     errors.email = "Email обязателен";

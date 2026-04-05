@@ -1,7 +1,7 @@
 export interface AuthResponse {
   access_token: string;
   refresh_token: string;
-  user: { id: number; email: string };
+  user: { id: number; email: string; name: string };
 }
 
 export interface ApiError {
@@ -25,8 +25,8 @@ async function request<T>(url: string, body: Record<string, string>): Promise<T>
   return data as T;
 }
 
-export async function apiRegister(email: string, password: string): Promise<AuthResponse> {
-  return request<AuthResponse>("/api/auth/register", { email, password });
+export async function apiRegister(email: string, password: string, name: string): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/register", { email, password, name });
 }
 
 export async function apiLogin(email: string, password: string): Promise<AuthResponse> {

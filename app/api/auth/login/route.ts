@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       access_token:  accessToken,
       refresh_token: refreshTokenValue,
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

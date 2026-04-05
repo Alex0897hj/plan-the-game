@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     const me = getUser(req);
 
     const games = await prisma.game.findMany({
+      where:   { status: { not: "cancelled" } },
       orderBy: { gameDateTime: "asc" },
       include: {
         createdBy:    { select: { id: true, email: true, name: true } },
@@ -80,6 +81,9 @@ export async function POST(req: NextRequest) {
         longitude,
         address:      typeof address === "string" ? address.trim() : null,
         createdById:  user.sub,
+        participants: {
+          create: { userId: user.sub, status: "confirmed" },
+        },
       },
     });
 

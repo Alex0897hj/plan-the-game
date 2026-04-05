@@ -14,13 +14,14 @@ interface Props {
 export default function AuthForm({ initialMode = "login" }: Props) {
   const router = useRouter();
 
-  const [mode, setMode]               = useState<Mode>(initialMode);
-  const [email, setEmail]             = useState("");
-  const [password, setPassword]       = useState("");
+  const [mode,         setMode]         = useState<Mode>(initialMode);
+  const [name,         setName]         = useState("");
+  const [email,        setEmail]        = useState("");
+  const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
-  const [apiError, setApiError]       = useState<string | null>(null);
-  const [loading, setLoading]         = useState(false);
+  const [fieldErrors,  setFieldErrors]  = useState<{ name?: string; email?: string; password?: string }>({});
+  const [apiError,     setApiError]     = useState<string | null>(null);
+  const [loading,      setLoading]      = useState(false);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -32,16 +33,16 @@ export default function AuthForm({ initialMode = "login" }: Props) {
     e.preventDefault();
     setApiError(null);
 
-    const errors = validateAuthForm(email, password);
+    const isRegister = mode === "register";
+    const errors = validateAuthForm(email, password, name, isRegister);
     if (hasErrors(errors)) { setFieldErrors(errors); return; }
     setFieldErrors({});
 
     setLoading(true);
     try {
-      const data =
-        mode === "register"
-          ? await apiRegister(email, password)
-          : await apiLogin(email, password);
+      const data = isRegister
+        ? await apiRegister(email, password, name.trim())
+        : await apiLogin(email, password);
       saveTokens(data);
       router.push("/");
     } catch (err) {
@@ -64,9 +65,7 @@ export default function AuthForm({ initialMode = "login" }: Props) {
             {isRegister ? "Создать аккаунт" : "Добро пожаловать"}
           </h1>
           <p style={subheadingStyle}>
-            {isRegister
-              ? "Зарегистрируйтесь, чтобы начать"
-              : "Войдите в свой аккаунт"}
+            {isRegister ? "Зарегистрируйтесь, чтобы начать" : "Войдите в свой аккаунт"}
           </p>
         </div>
 
@@ -79,10 +78,10 @@ export default function AuthForm({ initialMode = "login" }: Props) {
               onClick={() => switchMode(m)}
               style={{
                 ...tabBtnStyle,
-                background:   mode === m ? "#ffffff" : "transparent",
-                color:        mode === m ? "var(--foreground)" : "var(--muted)",
-                fontWeight:   mode === m ? 700 : 500,
-                boxShadow:    mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+                background: mode === m ? "#ffffff" : "transparent",
+                color:      mode === m ? "var(--foreground)" : "var(--muted)",
+                fontWeight: mode === m ? 700 : 500,
+                boxShadow:  mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
               }}
             >
               {m === "login" ? "Войти" : "Регистрация"}
@@ -92,6 +91,22 @@ export default function AuthForm({ initialMode = "login" }: Props) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+          {/* Name — register only */}
+          {isRegister && (
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Имя</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Как вас зовут?"
+                autoComplete="name"
+                className={`input${fieldErrors.name ? " input--error" : ""}`}
+              />
+              {fieldErrors.name && <span style={errorTextStyle}>{fieldErrors.name}</span>}
+            </div>
+          )}
 
           {/* Email */}
           <div style={fieldStyle}>
@@ -134,9 +149,7 @@ export default function AuthForm({ initialMode = "login" }: Props) {
 
           {/* API error */}
           {apiError && (
-            <div style={apiErrorStyle}>
-              {apiError}
-            </div>
+            <div style={apiErrorStyle}>{apiError}</div>
           )}
 
           {/* Submit */}
@@ -153,9 +166,7 @@ export default function AuthForm({ initialMode = "login" }: Props) {
               fontSize:      "16px",
             }}
           >
-            {loading
-              ? "Загрузка…"
-              : isRegister ? "Зарегистрироваться" : "Войти"}
+            {loading ? "Загрузка…" : isRegister ? "Зарегистрироваться" : "Войти"}
           </button>
         </form>
 
@@ -213,11 +224,11 @@ const subheadingStyle: React.CSSProperties = {
 };
 
 const tabsWrapStyle: React.CSSProperties = {
-  display:       "flex",
-  background:    "var(--surface)",
-  borderRadius:  "var(--radius-sm)",
-  padding:       "4px",
-  marginBottom:  "24px",
+  display:      "flex",
+  background:   "var(--surface)",
+  borderRadius: "var(--radius-sm)",
+  padding:      "4px",
+  marginBottom: "24px",
 };
 
 const tabBtnStyle: React.CSSProperties = {
@@ -242,7 +253,6 @@ const labelStyle: React.CSSProperties = {
   fontFamily:    "var(--font-ui)",
   fontSize:      "13px",
   fontWeight:    600,
-  letterSpacing: "0px",
   color:         "var(--foreground)",
 };
 

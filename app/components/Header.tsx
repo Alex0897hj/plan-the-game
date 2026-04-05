@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { clearTokens } from "@/app/lib/auth-api";
 
 interface User {
-  id: number;
+  id:    number;
   email: string;
+  name:  string;
 }
 
 export default function Header() {
@@ -50,7 +51,7 @@ export default function Header() {
     router.push("/");
   }
 
-  const initial = user?.email?.[0]?.toUpperCase() ?? "?";
+  const initial = (user?.name ?? user?.email ?? "?")?.[0].toUpperCase();
 
   return (
     <header
@@ -116,7 +117,7 @@ export default function Header() {
                 userSelect:   "none",
                 flexShrink:   0,
               }}
-              title={user.email}
+              title={user.name}
             >
               {initial}
             </button>
@@ -151,7 +152,7 @@ export default function Header() {
                     whiteSpace:  "nowrap",
                   }}
                 >
-                  {user.email}
+                  {user.name}
                 </p>
                 <button
                   type="button"

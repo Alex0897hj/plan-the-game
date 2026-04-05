@@ -29,6 +29,7 @@ export async function POST(
 
     const game = await prisma.game.findUnique({ where: { id: gameId } });
     if (!game) return err(404, "NOT_FOUND", "Игра не найдена");
+    if (game.createdById === me.sub) return err(403, "FORBIDDEN", "Создатель не может менять статус участия");
 
     const participant = await prisma.gameParticipant.upsert({
       where:  { gameId_userId: { gameId, userId: me.sub } },
@@ -59,6 +60,10 @@ export async function DELETE(
     const { id } = await params;
     const gameId = parseInt(id, 10);
     if (isNaN(gameId)) return err(400, "VALIDATION_ERROR", "Некорректный id игры");
+
+    const game = await prisma.game.findUnique({ where: { id: gameId } });
+    if (!game) return err(404, "NOT_FOUND", "Игра не найдена");
+    if (game.createdById === me.sub) return err(403, "FORBIDDEN", "Создатель не может отменить участие");
 
     await prisma.gameParticipant.deleteMany({
       where: { gameId, userId: me.sub },

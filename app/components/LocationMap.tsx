@@ -2,11 +2,11 @@
 
 /**
  * LocationMap — read-only Yandex Map showing a single saved marker.
- * Used on the game details page to display where the game will be held.
- * No interaction, no search, no controls except zoom.
+ * Performs reverse geocoding on mount to always show a human-readable address.
+ * The stored `address` prop is shown immediately as a fallback while geocoding runs.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadYmaps } from "@/app/lib/ymaps-loader";
 
 interface Props {
@@ -17,8 +17,9 @@ interface Props {
 }
 
 export default function LocationMap({ lat, lng, address, height = 280 }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inited       = useRef(false);
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const inited        = useRef(false);
+  const [resolvedAddress, setResolvedAddress] = useState<string>(address ?? "");
 
   useEffect(() => {
     if (inited.current || !containerRef.current) return;
@@ -26,32 +27,43 @@ export default function LocationMap({ lat, lng, address, height = 280 }: Props) 
 
     const coords: [number, number] = [lat, lng];
 
-    loadYmaps().then(() => {
+    loadYmaps().then(async () => {
       if (!containerRef.current) return;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ymaps = (window as any).ymaps;
 
+      // Render map + marker
       const map = new ymaps.Map(containerRef.current, {
         center:   coords,
         zoom:     15,
         controls: ["zoomControl"],
       });
-
       map.geoObjects.add(
         new ymaps.Placemark(coords, {}, { preset: "islands#redDotIcon" }),
       );
+
+      // Reverse geocode to get a fresh human-readable address
+      try {
+        const result = await ymaps.geocode(coords, { results: 1 });
+        const geoObj = result.geoObjects.get(0);
+        if (geoObj) {
+          setResolvedAddress(geoObj.getAddressLine());
+        }
+      } catch {
+        // keep whatever was passed as prop
+      }
     });
-  }, []); // lat/lng are stable for a given game — run once on mount
+  }, []); // coords are stable for a given game
 
   return (
     <div>
-      {address && (
-        <div style={addressRowStyle}>
-          <PinIcon />
-          <span>{address}</span>
-        </div>
-      )}
+      <div style={addressRowStyle}>
+        <PinIcon />
+        <span style={{ flex: 1 }}>
+          {resolvedAddress || `${lat.toFixed(6)}, ${lng.toFixed(6)}`}
+        </span>
+      </div>
       <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(0,0,0,0.08)" }}>
         <div ref={containerRef} style={{ width: "100%", height }} />
       </div>
@@ -71,11 +83,12 @@ function PinIcon() {
 }
 
 const addressRowStyle: React.CSSProperties = {
-  display:    "flex",
-  alignItems: "flex-start",
-  gap:        "6px",
-  fontFamily: "var(--font-ui)",
-  fontSize:   "14px",
-  color:      "var(--foreground)",
+  display:      "flex",
+  alignItems:   "flex-start",
+  gap:          "6px",
+  fontFamily:   "var(--font-ui)",
+  fontSize:     "14px",
+  color:        "var(--foreground)",
   marginBottom: "10px",
+  lineHeight:   "1.4",
 };

@@ -36,10 +36,12 @@ export default function GamePage() {
   const { id }  = useParams<{ id: string }>();
   const router  = useRouter();
 
-  const [game,     setGame]     = useState<Game | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [acting,   setActing]   = useState(false);
+  const [game,        setGame]        = useState<Game | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [notFound,    setNotFound]    = useState(false);
+  const [acting,      setActing]      = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [cancelling,  setCancelling]  = useState(false);
 
   const fetchGame = useCallback(async () => {
     const token   = getAccessToken();
@@ -74,11 +76,27 @@ export default function GamePage() {
     setActing(false);
   }
 
+  async function cancelGame() {
+    const token = getAccessToken();
+    if (!token || !game) return;
+    setCancelling(true);
+    await fetch(`/api/games/${game.id}`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body:    JSON.stringify({ status: "cancelled" }),
+    });
+    setCancelling(false);
+    router.push("/");
+  }
+
   if (loading)          return <PageShell><p style={mutedText}>Загрузка…</p></PageShell>;
   if (notFound || !game) return <PageShell><p style={mutedText}>Игра не найдена.</p></PageShell>;
 
+  const currentUser    = (() => { try { return JSON.parse(localStorage.getItem("user") ?? "null"); } catch { return null; } })();
   const isLoggedIn     = !!getAccessToken();
-  const canParticipate = isLoggedIn && game.status === "upcoming";
+  const isCreator      = isLoggedIn && currentUser?.id === game.createdBy.id;
+  const canParticipate = isLoggedIn && !isCreator && game.status === "upcoming";
+  const canCancel      = isCreator && game.status === "upcoming";
 
   const dateStr = new Date(game.gameDateTime).toLocaleString("ru-RU", {
     day: "numeric", month: "long", year: "numeric",
@@ -94,14 +112,61 @@ export default function GamePage() {
 
   return (
     <PageShell>
+
+      {/* ── Confirmation modal ── */}
+      {showConfirm && (
+        <div style={overlayStyle} onClick={() => setShowConfirm(false)}>
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+            <h2 style={modalTitleStyle}>Отменить игру?</h2>
+            <p style={modalBodyStyle}>
+              Игра «{game.title}» будет отмечена как отменённая. Это действие нельзя отменить.
+            </p>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="btn btn-ghost"
+                style={{ flex: 1, borderRadius: "10px" }}
+              >
+                Назад
+              </button>
+              <button
+                onClick={cancelGame}
+                disabled={cancelling}
+                className="btn"
+                style={{
+                  flex: 1, borderRadius: "10px",
+                  background: "var(--error, #dc2626)", color: "#fff",
+                  border: "none", cursor: cancelling ? "not-allowed" : "pointer",
+                  opacity: cancelling ? 0.7 : 1,
+                  fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "15px",
+                  padding: "10px 20px", minHeight: "40px",
+                }}
+              >
+                {cancelling ? "Отмена…" : "Отменить игру"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={layoutStyle}>
 
         {/* ── Main column ── */}
         <div style={mainColStyle}>
 
-          <button onClick={() => router.back()} style={backBtnStyle}>
-            ← Назад
-          </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button onClick={() => router.back()} style={backBtnStyle}>
+              ← Назад
+            </button>
+            {canCancel && (
+              <button
+                onClick={() => setShowConfirm(true)}
+                style={cancelBtnStyle}
+              >
+                Отменить игру
+              </button>
+            )}
+          </div>
 
           {/* Info card */}
           <div style={cardStyle}>
@@ -360,4 +425,53 @@ const actionBtn: React.CSSProperties = {
 
 const mutedText: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontSize: "13px", color: "var(--muted)", margin: 0,
+};
+
+const cancelBtnStyle: React.CSSProperties = {
+  background:   "none",
+  border:       "1.5px solid var(--error, #dc2626)",
+  color:        "var(--error, #dc2626)",
+  borderRadius: "8px",
+  padding:      "6px 14px",
+  cursor:       "pointer",
+  fontFamily:   "var(--font-ui)",
+  fontSize:     "13px",
+  fontWeight:   600,
+};
+
+const overlayStyle: React.CSSProperties = {
+  position:        "fixed",
+  inset:           0,
+  background:      "rgba(0,0,0,0.4)",
+  display:         "flex",
+  alignItems:      "center",
+  justifyContent:  "center",
+  zIndex:          500,
+  padding:         "24px",
+};
+
+const modalStyle: React.CSSProperties = {
+  background:   "#ffffff",
+  borderRadius: "var(--radius-lg)",
+  padding:      "28px 28px 24px",
+  maxWidth:     "420px",
+  width:        "100%",
+  boxShadow:    "0 8px 32px rgba(0,0,0,0.18)",
+};
+
+const modalTitleStyle: React.CSSProperties = {
+  fontFamily:    "var(--font-ui)",
+  fontWeight:    800,
+  fontSize:      "18px",
+  letterSpacing: "-0.3px",
+  color:         "var(--foreground)",
+  margin:        "0 0 10px",
+};
+
+const modalBodyStyle: React.CSSProperties = {
+  fontFamily:  "var(--font-ui)",
+  fontSize:    "14px",
+  color:       "var(--muted)",
+  lineHeight:  "1.5",
+  margin:      "0 0 20px",
 };
