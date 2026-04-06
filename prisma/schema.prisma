@@ -18,6 +18,12 @@ enum GameType {
   eight_x_eight
 }
 
+enum SurfaceType {
+  artificial_turf
+  natural_grass
+  parquet
+}
+
 
 model User {
   id             Int               @id @default(autoincrement())
@@ -52,6 +58,10 @@ model Game {
   latitude     Float?
   longitude    Float?
   address      String?
+  isIndoor     Boolean?
+  surfaceType  SurfaceType?
+  hasLocker    Boolean?
+  hasLighting  Boolean?
   createdById  Int
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt

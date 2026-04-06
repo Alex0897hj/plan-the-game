@@ -36,6 +36,10 @@ export default function CreateGamePage() {
   const [description,  setDescription]  = useState("");
   const [gameDateTime, setGameDateTime] = useState("");
   const [gameType,     setGameType]     = useState<GameType>("five_x_five");
+  const [isIndoor,     setIsIndoor]     = useState<"" | "true" | "false">("");
+  const [surfaceType,  setSurfaceType]  = useState<"" | "artificial_turf" | "natural_grass" | "parquet">("");
+  const [hasLocker,    setHasLocker]    = useState<"" | "true" | "false">("");
+  const [hasLighting,  setHasLighting]  = useState<"" | "true" | "false">("");
   const [location,     setLocation]     = useState<PickedLocation | null>(null);
   const [fieldErrors,  setFieldErrors]  = useState<FieldErrors>({});
   const [apiError,     setApiError]     = useState<string | null>(null);
@@ -81,6 +85,10 @@ export default function CreateGamePage() {
           latitude:    location!.lat,
           longitude:   location!.lng,
           address:     location!.address,
+          isIndoor:    isIndoor    === "" ? null : isIndoor    === "true",
+          surfaceType: surfaceType === "" ? null : surfaceType,
+          hasLocker:   hasLocker   === "" ? null : hasLocker   === "true",
+          hasLighting: hasLighting === "" ? null : hasLighting === "true",
         }),
       });
 
@@ -161,6 +169,41 @@ export default function CreateGamePage() {
                     {cfg.label} ({cfg.minPlayers} игроков)
                   </option>
                 ))}
+              </select>
+            </Field>
+          </div>
+
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <Field label="Тип площадки" style={{ flex: "1 1 140px" }}>
+              <select value={isIndoor} onChange={(e) => setIsIndoor(e.target.value as "" | "true" | "false")} className="input">
+                <option value="">не выбрано</option>
+                <option value="true">крытая</option>
+                <option value="false">открытая</option>
+              </select>
+            </Field>
+
+            <Field label="Тип покрытия" style={{ flex: "1 1 160px" }}>
+              <select value={surfaceType} onChange={(e) => setSurfaceType(e.target.value as "" | "artificial_turf" | "natural_grass" | "parquet")} className="input">
+                <option value="">не выбрано</option>
+                <option value="artificial_turf">искусственная трава</option>
+                <option value="natural_grass">натуральная трава</option>
+                <option value="parquet">паркет</option>
+              </select>
+            </Field>
+
+            <Field label="Раздевалки" style={{ flex: "1 1 120px" }}>
+              <select value={hasLocker} onChange={(e) => setHasLocker(e.target.value as "" | "true" | "false")} className="input">
+                <option value="">не выбрано</option>
+                <option value="true">есть</option>
+                <option value="false">нет</option>
+              </select>
+            </Field>
+
+            <Field label="Освещение" style={{ flex: "1 1 120px" }}>
+              <select value={hasLighting} onChange={(e) => setHasLighting(e.target.value as "" | "true" | "false")} className="input">
+                <option value="">не выбрано</option>
+                <option value="true">есть</option>
+                <option value="false">нет</option>
               </select>
             </Field>
           </div>

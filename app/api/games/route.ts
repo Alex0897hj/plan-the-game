@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     if (!body) return err(400, "VALIDATION_ERROR", "Тело запроса обязательно");
 
-    const { title, description, city, gameDateTime, gameType, latitude, longitude, address } = body;
+    const { title, description, city, gameDateTime, gameType, latitude, longitude, address,
+            isIndoor, surfaceType, hasLocker, hasLighting } = body;
 
     if (!title || typeof title !== "string" || !title.trim())
       return err(400, "VALIDATION_ERROR", "Название обязательно");
@@ -76,6 +77,12 @@ export async function POST(req: NextRequest) {
     if (typeof latitude !== "number" || typeof longitude !== "number")
       return err(400, "VALIDATION_ERROR", "Отметьте место проведения на карте");
 
+    const VALID_SURFACE = ["artificial_turf", "natural_grass", "parquet"];
+    const surfaceVal = surfaceType != null && VALID_SURFACE.includes(surfaceType) ? surfaceType : null;
+    const isIndoorVal   = typeof isIndoor  === "boolean" ? isIndoor  : null;
+    const hasLockerVal  = typeof hasLocker === "boolean" ? hasLocker : null;
+    const hasLightingVal = typeof hasLighting === "boolean" ? hasLighting : null;
+
     const game = await prisma.game.create({
       data: {
         title:        title.trim(),
@@ -86,6 +93,10 @@ export async function POST(req: NextRequest) {
         latitude,
         longitude,
         address:      typeof address === "string" ? address.trim() : null,
+        isIndoor:     isIndoorVal,
+        surfaceType:  surfaceVal,
+        hasLocker:    hasLockerVal,
+        hasLighting:  hasLightingVal,
         createdById:  user.sub,
         participants: {
           create: { userId: user.sub, isWaitlist: false },

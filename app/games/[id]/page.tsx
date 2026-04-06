@@ -19,6 +19,14 @@ const GAME_TYPE_LABEL: Record<GameType, string> = {
   eight_x_eight: "8×8",
 };
 
+type SurfaceType = "artificial_turf" | "natural_grass" | "parquet";
+
+const SURFACE_LABEL: Record<SurfaceType, string> = {
+  artificial_turf: "искусственная трава",
+  natural_grass:   "натуральная трава",
+  parquet:         "паркет",
+};
+
 interface Game {
   id:             number;
   title:          string;
@@ -27,6 +35,10 @@ interface Game {
   gameDateTime:   string;
   gameType:       GameType;
   minPlayers:     number;
+  isIndoor:       boolean | null;
+  surfaceType:    SurfaceType | null;
+  hasLocker:      boolean | null;
+  hasLighting:    boolean | null;
   status:         "upcoming" | "cancelled" | "completed";
   createdBy:      Player;
   confirmedCount: number;
@@ -191,6 +203,33 @@ export default function GamePage() {
             <h1 style={titleStyle}>{game.title}</h1>
             <p style={metaRowStyle}><CalIcon /> {dateStr}</p>
             <p style={descStyle}>{game.description}</p>
+
+            {/* Venue characteristics */}
+            {(game.isIndoor !== null || game.surfaceType !== null || game.hasLocker !== null || game.hasLighting !== null) && (
+              <div style={venueChipsStyle}>
+                {game.isIndoor !== null && (
+                  <span style={venueChipStyle}>
+                    {game.isIndoor ? "🏠 Крытая" : "☀️ Открытая"}
+                  </span>
+                )}
+                {game.surfaceType !== null && (
+                  <span style={venueChipStyle}>
+                    🌿 {SURFACE_LABEL[game.surfaceType]}
+                  </span>
+                )}
+                {game.hasLocker !== null && (
+                  <span style={venueChipStyle}>
+                    {game.hasLocker ? "🔒 Раздевалки есть" : "🔒 Раздевалок нет"}
+                  </span>
+                )}
+                {game.hasLighting !== null && (
+                  <span style={venueChipStyle}>
+                    {game.hasLighting ? "💡 Освещение есть" : "💡 Освещения нет"}
+                  </span>
+                )}
+              </div>
+            )}
+
             <p style={organizerStyle}>
               Организатор: <strong>{game.createdBy.name ?? game.createdBy.email}</strong>
             </p>
@@ -521,4 +560,16 @@ const modalTitleStyle: React.CSSProperties = {
 const modalBodyStyle: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontSize: "14px",
   color: "var(--muted)", lineHeight: "1.5", margin: "0 0 20px",
+};
+
+const venueChipsStyle: React.CSSProperties = {
+  display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "14px",
+};
+
+const venueChipStyle: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", gap: "4px",
+  padding: "3px 10px", borderRadius: "100px",
+  background: "#f8fafc", border: "1px solid #e5e7eb",
+  fontFamily: "var(--font-ui)", fontSize: "12px",
+  color: "var(--foreground)",
 };
