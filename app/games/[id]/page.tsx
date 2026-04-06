@@ -146,19 +146,20 @@ export default function GamePage() {
         </div>
       )}
 
+      {/* ── Back / Cancel row — above both columns ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+        <button onClick={() => router.back()} style={backBtnStyle}>← Назад</button>
+        {canCancel && (
+          <button onClick={() => setShowConfirm(true)} style={cancelBtnStyle}>
+            Отменить игру
+          </button>
+        )}
+      </div>
+
       <div style={layoutStyle}>
 
         {/* ── Main column ── */}
         <div style={mainColStyle}>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button onClick={() => router.back()} style={backBtnStyle}>← Назад</button>
-            {canCancel && (
-              <button onClick={() => setShowConfirm(true)} style={cancelBtnStyle}>
-                Отменить игру
-              </button>
-            )}
-          </div>
 
           {/* Info card */}
           <div style={cardStyle}>
@@ -205,6 +206,11 @@ export default function GamePage() {
             </div>
           )}
 
+        </div>
+
+        {/* ── Side column ── */}
+        <div style={sideColStyle}>
+
           {/* Participation */}
           {canParticipate && (
             <div style={cardStyle}>
@@ -249,10 +255,6 @@ export default function GamePage() {
               )}
             </div>
           )}
-        </div>
-
-        {/* ── Side column ── */}
-        <div style={sideColStyle}>
 
           {/* Confirmed list */}
           <div style={cardStyle}>
