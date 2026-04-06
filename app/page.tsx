@@ -386,15 +386,14 @@ function GameRow({ game, isSelected, onSelect, cardRef }: {
 /* ─── Styles ──────────────────────────────────────────────── */
 
 const mainStyle: React.CSSProperties = {
-  flex:       1,
   display:    "flex",
   overflow:   "hidden",
-  minHeight:  0,          // необходимо чтобы flex-child не вырастал за пределы родителя
+  height:     "calc(100dvh - 72px)",
   background: "var(--surface)",
 };
 
 const leftPanelStyle: React.CSSProperties = {
-  width:          "60%",
+  width:          "50%",
   flexShrink:     0,
   display:        "flex",
   flexDirection:  "column",
@@ -628,12 +627,6 @@ const badgeBase: React.CSSProperties = {
   whiteSpace:   "nowrap",
 };
 
-const rowMetaStyle: React.CSSProperties = {
-  display:    "flex",
-  flexWrap:   "wrap",
-  gap:        "10px",
-  marginBottom: "2px",
-};
 
 const rowMetaItemStyle: React.CSSProperties = {
   display:    "inline-flex",

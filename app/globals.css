@@ -139,7 +139,7 @@ body {
   color:       var(--foreground);
 
   background:    var(--surface);
-  border:        1.5px solid transparent;
+  border:        1.5px solid var(--border);
   border-radius: var(--radius-sm);
   outline:       none;
 

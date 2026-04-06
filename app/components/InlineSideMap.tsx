@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadYmaps } from "@/app/lib/ymaps-loader";
 
@@ -43,6 +43,11 @@ export default function InlineSideMap({ games, selectedGameId, onSelect }: Props
   const clustererRef  = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const placemarksRef = useRef<Map<number, any>>(new Map());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const myPinRef      = useRef<any>(null);
+
+  const [geoState, setGeoState] = useState<"idle" | "loading" | "error">("idle");
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const router      = useRouter();
   const routerRef   = useRef(router);
@@ -55,7 +60,6 @@ export default function InlineSideMap({ games, selectedGameId, onSelect }: Props
   useEffect(() => { gamesRef.current    = games; });
   useEffect(() => { selectedRef.current = selectedGameId; });
 
-  // Build placemarks and add to clusterer
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function buildPins(ymaps: any, pinGames: GamePin[]) {
     if (!clustererRef.current) return;
@@ -87,11 +91,7 @@ export default function InlineSideMap({ games, selectedGameId, onSelect }: Props
         { preset: game.id === selectedRef.current ? PRESET_SELECTED : PRESET_NORMAL },
       );
 
-      // Clicking the placemark (not the balloon button) selects the card in the list
-      pm.events.add("click", () => {
-        onSelectRef.current(game.id);
-      });
-
+      pm.events.add("click", () => { onSelectRef.current(game.id); });
       placemarksRef.current.set(game.id, pm);
       return pm;
     });
@@ -122,10 +122,9 @@ export default function InlineSideMap({ games, selectedGameId, onSelect }: Props
       });
       mapRef.current = map;
 
-      // Clusterer — cluster click just zooms (default behavior), does NOT select a card
       const clusterer = new ymaps.Clusterer({
-        preset:               "islands#redClusterIcons",
-        groupByCoordinates:   false,
+        preset:                  "islands#redClusterIcons",
+        groupByCoordinates:      false,
         clusterDisableClickZoom: false,
       });
       clustererRef.current = clusterer;
@@ -145,19 +144,20 @@ export default function InlineSideMap({ games, selectedGameId, onSelect }: Props
         try { mapRef.current.destroy(); } catch { /* ignore */ }
         mapRef.current = null;
       }
-      ymapsRef.current   = null;
+      ymapsRef.current    = null;
       clustererRef.current = null;
       placemarksRef.current.clear();
+      myPinRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Rebuild pins when games list changes (e.g. filter applied)
+  // Rebuild pins on filter change
   useEffect(() => {
     if (!ymapsRef.current || !clustererRef.current) return;
     buildPins(ymapsRef.current, games);
   }, [games]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // React to selection change: update marker presets + center map
+  // Sync selection → marker + map center
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -173,5 +173,142 @@ export default function InlineSideMap({ games, selectedGameId, onSelect }: Props
     }
   }, [selectedGameId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
+  function handleLocate() {
+    if (!navigator.geolocation) {
+      setGeoError("Геолокация не поддерживается браузером");
+      setGeoState("error");
+      return;
+    }
+
+    setGeoState("loading");
+    setGeoError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoState("idle");
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const map   = mapRef.current;
+        const ymaps = ymapsRef.current;
+        if (!map || !ymaps) return;
+
+        map.setCenter([lat, lng], 15, { duration: 400 });
+
+        // Reuse existing "you are here" pin
+        if (myPinRef.current) {
+          myPinRef.current.geometry.setCoordinates([lat, lng]);
+        } else {
+          const pin = new ymaps.Placemark(
+            [lat, lng],
+            { balloonContent: "Вы здесь", hintContent: "Вы здесь" },
+            { preset: "islands#blueCircleDotIcon" },
+          );
+          myPinRef.current = pin;
+          map.geoObjects.add(pin);
+        }
+      },
+      (err) => {
+        setGeoState("error");
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoError("Доступ к геолокации запрещён");
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          setGeoError("Не удалось определить местоположение");
+        } else {
+          setGeoError("Превышено время ожидания геолокации");
+        }
+      },
+      { timeout: 10_000, maximumAge: 60_000 },
+    );
+  }
+
+  return (
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+
+      {/* Locate button */}
+      <div style={locateBtnWrapStyle}>
+        <button
+          onClick={handleLocate}
+          disabled={geoState === "loading"}
+          style={locateBtnStyle}
+          title="Моё местоположение"
+        >
+          {geoState === "loading" ? (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 1s linear infinite" }}>
+              <circle cx="8" cy="8" r="6" stroke="#2563eb" strokeWidth="2" strokeDasharray="20 18" strokeLinecap="round"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="3" fill="#2563eb"/>
+              <circle cx="8" cy="8" r="6" stroke="#2563eb" strokeWidth="1.5"/>
+              <path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          )}
+          {geoState === "loading" ? "Определяем…" : "Я здесь"}
+        </button>
+
+        {geoState === "error" && geoError && (
+          <div style={geoErrorStyle}>
+            {geoError}
+            <button onClick={() => setGeoState("idle")} style={geoErrorCloseStyle}>✕</button>
+          </div>
+        )}
+      </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 }
+
+/* ── Styles ── */
+
+const locateBtnWrapStyle: React.CSSProperties = {
+  position:      "absolute",
+  bottom:        "60px",
+  left:          "16px",
+  display:       "flex",
+  flexDirection: "column",
+  alignItems:    "flex-start",
+  gap:           "8px",
+  zIndex:        10,
+};
+
+const locateBtnStyle: React.CSSProperties = {
+  display:      "inline-flex",
+  alignItems:   "center",
+  gap:          "7px",
+  padding:      "8px 14px",
+  borderRadius: "10px",
+  border:       "none",
+  background:   "#ffffff",
+  boxShadow:    "0 2px 8px rgba(0,0,0,0.18)",
+  fontFamily:   "var(--font-ui)",
+  fontSize:     "13px",
+  fontWeight:   600,
+  color:        "#2563eb",
+  cursor:       "pointer",
+  transition:   "box-shadow 0.15s",
+};
+
+const geoErrorStyle: React.CSSProperties = {
+  display:      "flex",
+  alignItems:   "center",
+  gap:          "8px",
+  padding:      "8px 12px",
+  borderRadius: "10px",
+  background:   "#ffffff",
+  boxShadow:    "0 2px 8px rgba(0,0,0,0.18)",
+  fontFamily:   "var(--font-ui)",
+  fontSize:     "12px",
+  color:        "#dc2626",
+  maxWidth:     "220px",
+};
+
+const geoErrorCloseStyle: React.CSSProperties = {
+  background: "none",
+  border:     "none",
+  cursor:     "pointer",
+  color:      "#9ca3af",
+  fontSize:   "12px",
+  padding:    "0",
+  flexShrink: 0,
+};
