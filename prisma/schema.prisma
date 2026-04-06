@@ -33,6 +33,7 @@ model User {
   isAdmin        Boolean           @default(false)
   isBlocked      Boolean           @default(false)
   canCreateGame  Boolean           @default(true)
+  telegram       String?
   createdAt      DateTime          @default(now())
   refreshTokens  RefreshToken[]
   games          Game[]

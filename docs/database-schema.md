@@ -28,6 +28,7 @@
 | `isAdmin` | `Boolean` | Default: `false` — superadmin flag |
 | `isBlocked` | `Boolean` | Default: `false` — blocked users cannot login |
 | `canCreateGame` | `Boolean` | Default: `true` — if `false`, POST /games is forbidden |
+| `telegram` | `String?` | Optional Telegram username or numeric ID |
 | `createdAt` | `DateTime` | Default: now |
 
 **Relations:**

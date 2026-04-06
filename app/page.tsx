@@ -59,7 +59,7 @@ export default function Home() {
   const [archivedGames, setArchivedGames] = useState<Game[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [activeTab,     setActiveTab]     = useState<"open" | "my" | "archive">("open");
-  const [isAdmin,       setIsAdmin]       = useState(false);
+  const [isLoggedIn,    setIsLoggedIn]    = useState(false);
   const [cityFilter,    setCityFilter]    = useState("");
   const [dateFrom,      setDateFrom]      = useState("");
   const [dateTo,        setDateTo]        = useState("");
@@ -87,14 +87,17 @@ export default function Home() {
     const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
     const userObj = rawUser ? JSON.parse(rawUser) : null;
     const admin   = !!userObj?.isAdmin;
-    setIsAdmin(admin);
+    setIsLoggedIn(!!token);
 
     const res = await fetch("/api/games", { headers });
     if (res.ok) setGames(await res.json());
 
-    if (admin && token) {
-      const archRes = await fetch("/api/admin/games", { headers });
+    if (token) {
+      const archUrl  = admin ? "/api/admin/games" : "/api/games/my-archive";
+      const archRes  = await fetch(archUrl, { headers });
       if (archRes.ok) setArchivedGames(await archRes.json());
+    } else {
+      setArchivedGames([]);
     }
 
     setLoading(false);
@@ -176,14 +179,16 @@ export default function Home() {
             <button onClick={() => setActiveTab("open")} style={activeTab === "open" ? activeTabBtn : tabBtn}>
               Открытые
             </button>
-            <button
-              onClick={() => setActiveTab("my")}
-              style={{ position: "relative", ...(activeTab === "my" ? activeTabBtn : tabBtn) }}
-            >
-              Мои игры
-              {hasMyGames && <span style={dotStyle} />}
-            </button>
-            {isAdmin && (
+            {isLoggedIn && (
+              <button
+                onClick={() => setActiveTab("my")}
+                style={{ position: "relative", ...(activeTab === "my" ? activeTabBtn : tabBtn) }}
+              >
+                Мои игры
+                {hasMyGames && <span style={dotStyle} />}
+              </button>
+            )}
+            {isLoggedIn && (
               <button onClick={() => setActiveTab("archive")} style={activeTab === "archive" ? activeTabBtn : tabBtn}>
                 Архив
               </button>

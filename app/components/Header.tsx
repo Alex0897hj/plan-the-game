@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { clearTokens } from "@/app/lib/auth-api";
 
 interface User {
@@ -14,7 +14,8 @@ interface User {
 }
 
 export default function Header() {
-  const router = useRouter();
+  const router   = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -51,6 +52,11 @@ export default function Header() {
     setUser(null);
     setOpen(false);
     router.push("/");
+  }
+
+  function handleProfile() {
+    setOpen(false);
+    router.push("/profile");
   }
 
   const initial = (user?.name ?? user?.email ?? "?")?.[0].toUpperCase();
@@ -167,6 +173,29 @@ export default function Header() {
                 >
                   {user.name}
                 </p>
+                <button
+                  type="button"
+                  onClick={handleProfile}
+                  style={{
+                    width:        "100%",
+                    padding:      "8px 10px",
+                    border:       "none",
+                    borderRadius: "6px",
+                    background:   pathname === "/profile" ? "#f1f5f9" : "none",
+                    cursor:       "pointer",
+                    fontFamily:   "var(--font-ui)",
+                    fontSize:     "14px",
+                    fontWeight:   600,
+                    color:        "var(--foreground)",
+                    textAlign:    "left",
+                    transition:   "background 0.12s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = pathname === "/profile" ? "#f1f5f9" : "none")}
+                >
+                  Профиль
+                </button>
+                <div style={{ height: "1px", background: "rgba(0,0,0,0.06)", margin: "4px 0" }} />
                 <button
                   type="button"
                   onClick={handleLogout}

@@ -133,7 +133,11 @@ Authorization: Bearer <access_token>
 ```json
 {
   "id": 1,
-  "email": "user@example.com"
+  "email": "user@example.com",
+  "name": "string",
+  "isAdmin": false,
+  "canCreateGame": true,
+  "telegram": "@username | null"
 }
 ```
 
@@ -142,6 +146,48 @@ Authorization: Bearer <access_token>
 | --- | -------- |
 | 401 `MISSING_TOKEN` | Заголовок `Authorization` отсутствует |
 | 401 `INVALID_TOKEN` | Токен невалиден или истёк |
+
+---
+
+### PATCH /auth/me
+
+**Описание:** Обновление профиля — Telegram и/или смена пароля. Оба поля опциональны, но хотя бы одно должно быть передано.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Request (все поля опциональны):**
+```json
+{
+  "telegram": "@username",
+  "currentPassword": "string",
+  "newPassword": "string"
+}
+```
+
+- Чтобы сохранить Telegram — передай `telegram` (строка или `null` для удаления)
+- Чтобы сменить пароль — передай `currentPassword` + `newPassword` (мин. 6 символов)
+
+**Response 200:**
+```json
+{
+  "id": 1,
+  "email": "string",
+  "name": "string",
+  "isAdmin": false,
+  "canCreateGame": true,
+  "telegram": "@username | null"
+}
+```
+
+**Ошибки:**
+| Код | Описание |
+| --- | -------- |
+| 400 `VALIDATION_ERROR` | Нет данных / новый пароль < 6 символов / не передан текущий пароль |
+| 401 `MISSING_TOKEN` / `INVALID_TOKEN` | Не авторизован |
+| 403 `WRONG_PASSWORD` | Текущий пароль неверен |
 
 ---
 
