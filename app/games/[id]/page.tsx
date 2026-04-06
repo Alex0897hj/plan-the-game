@@ -41,6 +41,7 @@ interface Game {
   hasLocker:      boolean | null;
   hasLighting:    boolean | null;
   status:         "upcoming" | "cancelled" | "completed";
+  cancelReason:   string | null;
   createdBy:      Player;
   confirmedCount: number;
   waitlistCount:  number;
@@ -181,6 +182,19 @@ export default function GamePage() {
           </button>
         )}
       </div>
+
+      {/* ── Auto-cancel reason banner ── */}
+      {game.status === "cancelled" && game.cancelReason === "not_enough_players" && (
+        <div style={autoCancelBannerStyle}>
+          <div style={autoCancelIconStyle}>✕</div>
+          <div>
+            <p style={autoCancelTitleStyle}>Игра отменена автоматически</p>
+            <p style={autoCancelBodyStyle}>
+              За 6 часов до начала не набралось достаточное количество участников для проведения игры.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div style={layoutStyle}>
 
@@ -444,6 +458,33 @@ const sideColStyle: React.CSSProperties = {
 const cardStyle: React.CSSProperties = {
   background: "#ffffff", borderRadius: "var(--radius-lg)",
   padding: "20px", boxShadow: "var(--shadow-drop)",
+};
+
+const autoCancelBannerStyle: React.CSSProperties = {
+  display: "flex", alignItems: "flex-start", gap: "16px",
+  background: "#fef2f2", borderRadius: "var(--radius-lg)",
+  padding: "20px 22px", border: "1.5px solid #fca5a5",
+  marginBottom: "20px",
+};
+
+const autoCancelIconStyle: React.CSSProperties = {
+  width: "40px", height: "40px", borderRadius: "50%",
+  background: "#dc2626", color: "#fff",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "18px",
+  flexShrink: 0,
+};
+
+const autoCancelTitleStyle: React.CSSProperties = {
+  margin: "0 0 4px",
+  fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "16px",
+  color: "#991b1b",
+};
+
+const autoCancelBodyStyle: React.CSSProperties = {
+  margin: 0,
+  fontFamily: "var(--font-ui)", fontSize: "14px", lineHeight: "1.55",
+  color: "#b91c1c",
 };
 
 const warningCardStyle: React.CSSProperties = {

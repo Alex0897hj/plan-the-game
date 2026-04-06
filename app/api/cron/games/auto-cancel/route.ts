@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     await prisma.game.updateMany({
       where: { id: { in: toCancel.map((g) => g.id) } },
-      data:  { status: "cancelled" },
+      data:  { status: "cancelled", cancelReason: "not_enough_players" },
     });
 
     return NextResponse.json({

@@ -3,6 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
 import { minPlayersFromType } from "@/lib/game-types";
 
+/** Auto-cancel a game if it's within 6 hours of start and short on players. */
+async function maybeAutoCancel(gameId: number, gameDateTime: Date, gameType: string, confirmedCount: number) {
+  const hoursUntil = (gameDateTime.getTime() - Date.now()) / 3_600_000;
+  if (hoursUntil > 6 || hoursUntil < 0) return false;
+  const minPlayers = minPlayersFromType(gameType as Parameters<typeof minPlayersFromType>[0]);
+  if (confirmedCount >= minPlayers) return false;
+  await prisma.game.update({
+    where: { id: gameId },
+    data:  { status: "cancelled", cancelReason: "not_enough_players" },
+  });
+  return true;
+}
+
 function err(status: number, error: string, message: string) {
   return NextResponse.json({ error, message }, { status });
 }
@@ -32,6 +45,16 @@ export async function GET(
     });
 
     if (!game) return err(404, "NOT_FOUND", "Игра не найдена");
+
+    // Auto-cancel inline if criteria are met (fallback when cron hasn't run yet)
+    if (game.status === "upcoming") {
+      const confirmedCount = game.participants.filter((p) => !p.isWaitlist).length;
+      const cancelled = await maybeAutoCancel(game.id, game.gameDateTime, game.gameType, confirmedCount);
+      if (cancelled) {
+        game.status       = "cancelled";
+        game.cancelReason = "not_enough_players";
+      }
+    }
 
     const confirmed = game.participants.filter((p) => !p.isWaitlist);
     const waitlist  = game.participants.filter((p) =>  p.isWaitlist);

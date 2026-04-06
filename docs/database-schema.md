@@ -65,6 +65,7 @@
 | `address` | `String?` | Optional |
 | `createdById` | `Int` | FK → `User.id` |
 | `status` | `GameStatus` | Default: `upcoming` |
+| `cancelReason` | `String?` | `"not_enough_players"` — автоотмена кроном; `null` — ручная отмена |
 | `createdAt` | `DateTime` | Default: now |
 | `updatedAt` | `DateTime` | Auto-updated |
 
