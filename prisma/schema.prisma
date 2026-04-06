@@ -34,9 +34,10 @@ model User {
   isBlocked      Boolean           @default(false)
   canCreateGame  Boolean           @default(true)
   createdAt      DateTime          @default(now())
-  refreshTokens RefreshToken[]
-  games         Game[]
+  refreshTokens  RefreshToken[]
+  games          Game[]
   participations GameParticipant[]
+  chatMessages   ChatMessage[]
 }
 
 model RefreshToken {
@@ -68,6 +69,7 @@ model Game {
   status       GameStatus        @default(upcoming)
   createdBy    User              @relation(fields: [createdById], references: [id])
   participants GameParticipant[]
+  chatMessages ChatMessage[]
 
   @@index([createdById])
   @@index([status])
@@ -86,4 +88,16 @@ model GameParticipant {
   @@unique([gameId, userId])
   @@index([userId])
   @@index([gameId, isWaitlist])
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  gameId    Int
+  userId    Int
+  text      String
+  createdAt DateTime @default(now())
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, createdAt])
 }

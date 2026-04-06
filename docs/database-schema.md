@@ -71,6 +71,7 @@
 **Relations:**
 - Belongs to `User` via `createdById`
 - Has many `GameParticipant`
+- Has many `ChatMessage`
 
 **Indexes:** `createdById`, `status`, `gameDateTime`
 
@@ -100,17 +101,42 @@
 
 ---
 
+### `ChatMessage`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| `id` | `Int` | PK, auto-increment |
+| `gameId` | `Int` | FK → `Game.id` |
+| `userId` | `Int` | FK → `User.id` |
+| `text` | `String` | Max 500 chars (enforced server-side) |
+| `createdAt` | `DateTime` | Default: now |
+
+**Relations:**
+- Belongs to `Game` (cascade delete)
+- Belongs to `User` (cascade delete)
+
+**Indexes:** `(gameId, createdAt)`
+
+**Access rules:**
+- Read: confirmed participant (`isWaitlist = false`) of a non-cancelled game
+- Write: confirmed participant of an `upcoming` game, user not blocked
+- Waitlist users have no read or write access
+
+---
+
 ## Entity Relationship Diagram
 
 ```
 User ──────────────< RefreshToken
  │
  ├──────────────< Game
- │                    │
- └──────────────< GameParticipant >──── Game
+ │                    │  │
+ ├──────────────< GameParticipant >──── Game
+ │                         │
+ └──────────────< ChatMessage >──────── Game
 ```
 
 - One `User` creates many `Games`
 - One `Game` has many `GameParticipants`
 - One `User` can be a participant in many `Games`
 - A `User` can only have one `GameParticipant` record per `Game`
+- One `Game` has many `ChatMessages`; messages are deleted when the game is deleted

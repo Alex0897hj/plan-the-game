@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getAccessToken } from "@/app/lib/auth-api";
 import LocationMap from "@/app/components/LocationMap";
+import GameChat    from "@/app/components/GameChat";
 
 interface Player {
   id:    number;
@@ -262,6 +263,13 @@ export default function GamePage() {
               <LocationMap lat={game.latitude} lng={game.longitude} address={game.address} height={280} />
             </div>
           )}
+
+          {/* Chat */}
+          <GameChat
+            gameId={game.id}
+            myStatus={game.myStatus}
+            gameStatus={game.status}
+          />
 
         </div>
 

@@ -357,6 +357,66 @@ Authorization: Bearer <access_token>
 
 ---
 
+### GET /games/:id/chat
+
+**Описание:** История сообщений чата игры (последние 100, по `createdAt ASC`). Доступно только подтверждённым участникам основного состава (`isWaitlist = false`). Для отменённых игр — недоступно.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response 200:**
+```json
+[
+  {
+    "id": 1,
+    "gameId": 1,
+    "text": "string",
+    "createdAt": "string",
+    "user": { "id": 2, "name": "string | null", "email": "string" }
+  }
+]
+```
+
+**Ошибки:**
+| Код | Описание |
+| --- | -------- |
+| 401 `UNAUTHORIZED` | Не авторизован |
+| 403 `FORBIDDEN` | Пользователь не участник основного состава, заблокирован, или игра отменена |
+| 404 `NOT_FOUND` | Игра не найдена |
+
+---
+
+## Realtime (Socket.IO)
+
+Адрес: тот же хост/порт, path `/api/socket.io`.
+
+### Аутентификация соединения
+
+```js
+const socket = io({ path: "/api/socket.io", auth: { token: "<access_token>" } });
+```
+
+Соединение отклоняется с ошибкой `UNAUTHORIZED`, если токен отсутствует или недействителен.
+
+### Клиент → Сервер
+
+| Событие | Payload | Описание |
+| ------- | ------- | -------- |
+| `join_game` | `{ gameId: number }` | Подписаться на чат игры. Требует `isWaitlist = false` и статус игры `upcoming` или `completed`. |
+| `send_message` | `{ gameId: number, text: string }` | Отправить сообщение. Требует `isWaitlist = false`, статус игры `upcoming`, пользователь не заблокирован. Макс. длина текста — 500 символов. |
+
+### Сервер → Клиент
+
+| Событие | Payload | Описание |
+| ------- | ------- | -------- |
+| `joined_game` | `{ gameId: number }` | Подтверждение успешного вступления в комнату чата. |
+| `new_message` | `{ id, gameId, text, createdAt, user: { id, name, email } }` | Новое сообщение. Рассылается всем в комнате `game:{gameId}`. |
+| `chat_error` | `{ code: string, message: string }` | Ошибка. Коды: `FORBIDDEN`, `GAME_CANCELLED`, `GAME_INACTIVE`, `BLOCKED`. |
+
+---
+
 ## Cron
 
 ### GET /cron/games/auto-cancel
