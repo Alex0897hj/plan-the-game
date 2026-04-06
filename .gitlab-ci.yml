@@ -1,0 +1,13 @@
+stages:
+  - deploy
+
+deploy-socket:
+  stage: deploy
+  image: node:20-alpine
+  only:
+    - main
+  script:
+    - npm install -g @railway/cli
+    - railway up --service socket-server --detach
+  variables:
+    RAILWAY_TOKEN: $RAILWAY_TOKEN
