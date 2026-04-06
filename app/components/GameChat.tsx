@@ -51,8 +51,10 @@ export default function GameChat({ gameId, myStatus, gameStatus }: Props) {
     const token = getAccessToken();
     if (!token) return;
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL ?? "";
-    const socket = io(socketUrl, { path: "/api/socket.io", auth: { token } });
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    const socket = socketUrl
+      ? io(socketUrl, { path: "/api/socket.io", auth: { token } })
+      : io({ path: "/api/socket.io", auth: { token } });
     socketRef.current = socket;
 
     socket.on("connect", () => {
