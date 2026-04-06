@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { getAccessToken } from "@/app/lib/auth-api";
-import GamesMap from "@/app/components/GamesMap";
+import InlineSideMap, { type GamePin } from "@/app/components/InlineSideMap";
 
 const RUSSIAN_CITIES = [
   "Москва", "Санкт-Петербург",
@@ -30,6 +30,25 @@ const RUSSIAN_CITIES = [
 
 type GameType = "five_x_five" | "seven_x_seven" | "eight_x_eight";
 
+const GAME_TYPE_LABEL: Record<GameType, string> = {
+  five_x_five:   "5×5",
+  seven_x_seven: "7×7",
+  eight_x_eight: "8×8",
+};
+
+const STATIC_MAP_KEY = "7ae6ca34-545f-4776-a78b-b5fa4c11d71f";
+
+function staticThumbUrl(lat: number, lng: number): string {
+  return (
+    `https://static-maps.yandex.ru/v1` +
+    `?apikey=${STATIC_MAP_KEY}` +
+    `&ll=${lng},${lat}` +
+    `&z=15` +
+    `&size=540,400` +
+    `&pt=${lng},${lat},pm2rdm` +
+    `&lang=ru_RU`
+  );
+}
 
 interface Game {
   id:             number;
@@ -48,38 +67,36 @@ interface Game {
   address:        string | null;
 }
 
-const STATIC_MAP_KEY = "7ae6ca34-545f-4776-a78b-b5fa4c11d71f";
-
-function staticMapUrl(lat: number, lng: number): string {
-  const ll = `${lng},${lat}`;   // Static API: longitude first, then latitude
-  const pt = `${lng},${lat},pm2rdm`;
-  return (
-    `https://static-maps.yandex.ru/v1` +
-    `?apikey=${STATIC_MAP_KEY}` +
-    `&ll=${ll}` +
-    `&z=14` +
-    `&size=600,140` +
-    `&pt=${pt}` +
-    `&lang=ru_RU`
-  );
-}
-
 export default function Home() {
-  const [games,        setGames]        = useState<Game[]>([]);
+  const [games,         setGames]         = useState<Game[]>([]);
   const [archivedGames, setArchivedGames] = useState<Game[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [showMap,      setShowMap]      = useState(false);
-  const [activeTab,    setActiveTab]    = useState<"open" | "my" | "archive">("open");
-  const [isAdmin,      setIsAdmin]      = useState(false);
-  const [cityFilter,   setCityFilter]   = useState("");
-  const [dateFrom,     setDateFrom]     = useState("");
-  const [dateTo,       setDateTo]       = useState("");
+  const [loading,       setLoading]       = useState(true);
+  const [activeTab,     setActiveTab]     = useState<"open" | "my" | "archive">("open");
+  const [isAdmin,       setIsAdmin]       = useState(false);
+  const [cityFilter,    setCityFilter]    = useState("");
+  const [dateFrom,      setDateFrom]      = useState("");
+  const [dateTo,        setDateTo]        = useState("");
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+
+  const listRef  = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Map<number, HTMLAnchorElement>>(new Map());
+
+  const handleMapSelect = useCallback((id: number) => {
+    setSelectedGameId(id);
+    const el = cardRefs.current.get(id);
+    if (el && listRef.current) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, []);
+
+  const handleCardSelect = useCallback((id: number) => {
+    setSelectedGameId(id);
+  }, []);
 
   const fetchGames = useCallback(async () => {
     const token   = getAccessToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
-    // Detect admin from localStorage (set at login)
     const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
     const userObj = rawUser ? JSON.parse(rawUser) : null;
     const admin   = !!userObj?.isAdmin;
@@ -131,72 +148,63 @@ export default function Home() {
     });
   }, [games, archivedGames, activeTab, cityFilter, dateFrom, dateTo]);
 
+  const mapPins: GamePin[] = useMemo(() =>
+    filteredGames
+      .filter((g) => g.status === "upcoming" && g.latitude != null && g.longitude != null)
+      .map((g) => ({
+        id:             g.id,
+        title:          g.title,
+        city:           g.city,
+        gameDateTime:   g.gameDateTime,
+        gameType:       g.gameType,
+        confirmedCount: g.confirmedCount,
+        minPlayers:     g.minPlayers,
+        lat:            g.latitude!,
+        lng:            g.longitude!,
+      })),
+  [filteredGames]);
+
   const hasActiveFilters = cityFilter || dateFrom || dateTo;
 
-  if (loading) {
-    return (
-      <main style={pageStyle}>
-        <p style={mutedText}>Загрузка…</p>
-      </main>
-    );
-  }
-
-  const mappableGames = filteredGames.filter(
-    (g) => g.status === "upcoming" && g.latitude != null && g.longitude != null,
-  );
+  const emptyMsg = activeTab === "my"
+    ? "Вы пока не участвуете ни в одной предстоящей игре."
+    : activeTab === "archive"
+      ? "Нет архивных игр."
+      : games.length === 0
+        ? "Пока нет ни одной игры. Создайте первую!"
+        : "Нет игр, соответствующих фильтрам.";
 
   return (
-    <main style={pageStyle}>
+    <main style={mainStyle}>
 
-      {showMap && (
-        <GamesMap
-          games={mappableGames.map((g) => ({
-            id:             g.id,
-            title:          g.title,
-            city:           g.city,
-            gameDateTime:   g.gameDateTime,
-            gameType:       g.gameType,
-            confirmedCount: g.confirmedCount,
-            minPlayers:     g.minPlayers,
-            lat:            g.latitude!,
-            lng:            g.longitude!,
-          }))}
-          onClose={() => setShowMap(false)}
-        />
-      )}
+      {/* ── Left panel ── */}
+      <div style={leftPanelStyle}>
 
-      <div style={innerStyle}>
-        <h1 style={headingStyle}>Игры</h1>
+        {/* Sticky top: heading + tabs + filters */}
+        <div style={topAreaStyle}>
+          <h1 style={headingStyle}>Игры</h1>
 
-        {/* ── Tabs ── */}
-        <div style={tabsRowStyle}>
-          <button
-            onClick={() => setActiveTab("open")}
-            style={activeTab === "open" ? activeTabBtnStyle : tabBtnStyle}
-          >
-            Открытые игры
-          </button>
-          <button
-            onClick={() => setActiveTab("my")}
-            style={{ position: "relative", ...(activeTab === "my" ? activeTabBtnStyle : tabBtnStyle) }}
-          >
-            Мои игры
-            {hasMyGames && <span style={myGamesDotStyle} />}
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => setActiveTab("archive")}
-              style={activeTab === "archive" ? activeTabBtnStyle : tabBtnStyle}
-            >
-              Архивные игры
+          {/* Tabs */}
+          <div style={tabsRowStyle}>
+            <button onClick={() => setActiveTab("open")} style={activeTab === "open" ? activeTabBtn : tabBtn}>
+              Открытые
             </button>
-          )}
-        </div>
+            <button
+              onClick={() => setActiveTab("my")}
+              style={{ position: "relative", ...(activeTab === "my" ? activeTabBtn : tabBtn) }}
+            >
+              Мои игры
+              {hasMyGames && <span style={dotStyle} />}
+            </button>
+            {isAdmin && (
+              <button onClick={() => setActiveTab("archive")} style={activeTab === "archive" ? activeTabBtn : tabBtn}>
+                Архив
+              </button>
+            )}
+          </div>
 
-        {/* ── Filters ── */}
-        <div style={filtersRowStyle}>
-          <div style={filterGroupStyle}>
-            <label style={filterLabelStyle}>Город</label>
+          {/* Filters */}
+          <div style={filtersStyle}>
             <select
               value={cityFilter}
               onChange={(e) => setCityFilter(e.target.value)}
@@ -207,367 +215,454 @@ export default function Home() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-          </div>
 
-          <div style={filterGroupStyle}>
-            <label style={filterLabelStyle}>Дата с</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              style={inputStyle}
+              style={dateInputStyle}
+              placeholder="От"
             />
-          </div>
-
-          <div style={filterGroupStyle}>
-            <label style={filterLabelStyle}>Дата по</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              style={inputStyle}
+              style={dateInputStyle}
+              placeholder="До"
             />
+
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setCityFilter(""); setDateFrom(""); setDateTo(""); }}
+                style={clearBtnStyle}
+              >
+                Сбросить
+              </button>
+            )}
           </div>
 
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setCityFilter(""); setDateFrom(""); setDateTo(""); }}
-              style={clearBtnStyle}
-            >
-              Сбросить
-            </button>
-          )}
-
-          {mappableGames.length > 0 && (
-            <button onClick={() => setShowMap(true)} style={{ ...mapBtnStyle, marginLeft: "auto" }}>
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M1 3.5l4.5-2 5 2 4.5-2v11l-4.5 2-5-2-4.5 2v-11z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                <path d="M5.5 1.5v11M10.5 3.5v11" stroke="currentColor" strokeWidth="1.4"/>
-              </svg>
-              Показать на карте
-            </button>
-          )}
+          {/* Result count */}
+          <p style={countStyle}>
+            {loading ? "Загрузка…" : `${filteredGames.length} ${pluralGames(filteredGames.length)}`}
+          </p>
         </div>
 
-        {filteredGames.length === 0 ? (
-          <p style={mutedText}>
-            {activeTab === "my"
-              ? "Вы пока не участвуете ни в одной предстоящей игре."
-              : activeTab === "archive"
-                ? "Нет архивных игр."
-                : games.length === 0
-                  ? "Пока нет ни одной игры. Создайте первую!"
-                  : "Нет игр, соответствующих фильтрам."}
-          </p>
-        ) : (
-          <div style={gridStyle}>
-            {filteredGames.map((game) => <GameCard key={game.id} game={game} />)}
-          </div>
-        )}
+        {/* Scrollable list */}
+        <div ref={listRef} style={listStyle}>
+          {loading ? null : filteredGames.length === 0 ? (
+            <p style={mutedText}>{emptyMsg}</p>
+          ) : (
+            filteredGames.map((game) => (
+              <GameRow
+                key={game.id}
+                game={game}
+                isSelected={game.id === selectedGameId}
+                onSelect={handleCardSelect}
+                cardRef={(el) => {
+                  if (el) cardRefs.current.set(game.id, el);
+                  else cardRefs.current.delete(game.id);
+                }}
+              />
+            ))
+          )}
+        </div>
       </div>
+
+      {/* ── Right panel: inline map ── */}
+      <div style={mapPanelStyle}>
+        <InlineSideMap
+          games={mapPins}
+          selectedGameId={selectedGameId}
+          onSelect={handleMapSelect}
+        />
+      </div>
+
     </main>
   );
 }
 
-/* ─── Game Card ──────────────────────────────────────────── */
+function pluralGames(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return "игр";
+  if (mod10 === 1) return "игра";
+  if (mod10 >= 2 && mod10 <= 4) return "игры";
+  return "игр";
+}
 
-function GameCard({ game }: { game: Game }) {
+/* ─── Game Row ──────────────────────────────────────────────── */
+
+function GameRow({ game, isSelected, onSelect, cardRef }: {
+  game:      Game;
+  isSelected: boolean;
+  onSelect:  (id: number) => void;
+  cardRef:   (el: HTMLAnchorElement | null) => void;
+}) {
   const dateStr = new Date(game.gameDateTime).toLocaleString("ru-RU", {
-    day: "numeric", month: "long", year: "numeric",
+    day: "numeric", month: "short",
     hour: "2-digit", minute: "2-digit",
   });
 
   const isPast = new Date(game.gameDateTime) < new Date();
-  const statusColors: Record<Game["status"], { bg: string; color: string; label: string }> = {
-    upcoming:  isPast
-      ? { bg: "#f1f5f9", color: "#64748b", label: "Истекла"   }
-      : { bg: "#eff6ff", color: "#2563eb", label: "Скоро"     },
+  const statusMap: Record<Game["status"], { bg: string; color: string; label: string }> = {
+    upcoming:  isPast ? { bg: "#f1f5f9", color: "#64748b", label: "Истекла" }
+                      : { bg: "#eff6ff", color: "#2563eb", label: "Скоро"   },
     completed: { bg: "#f0fdf4", color: "#16a34a", label: "Завершена" },
     cancelled: { bg: "#fef2f2", color: "#dc2626", label: "Отменена"  },
   };
-  const badge = statusColors[game.status];
+  const badge = statusMap[game.status];
+  const hasThumb = game.latitude != null && game.longitude != null;
 
-  const hasMap = game.latitude != null && game.longitude != null;
+  const selectedRowStyle: React.CSSProperties = isSelected
+    ? { ...rowStyle, boxShadow: "0 0 0 2px var(--primary)", background: "#eff6ff" }
+    : rowStyle;
 
   return (
-    <Link href={`/games/${game.id}`} style={cardStyle}>
+    <Link
+      href={`/games/${game.id}`}
+      style={selectedRowStyle}
+      ref={cardRef}
+      onClick={() => onSelect(game.id)}
+    >
 
-      {/* Static map preview */}
-      {hasMap && (
-        <div style={mapPreviewWrapStyle}>
+      {/* Thumbnail */}
+      <div style={thumbWrapStyle}>
+        {hasThumb ? (
           <img
-            src={staticMapUrl(game.latitude!, game.longitude!)}
-            alt="Карта"
-            style={mapPreviewImgStyle}
+            src={staticThumbUrl(game.latitude!, game.longitude!)}
+            alt=""
+            style={thumbImgStyle}
           />
-        </div>
-      )}
-
-      {/* Card body */}
-      <div style={cardBodyStyle}>
-
-      {/* City + badge */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "10px" }}>
-        <span style={cityStyle}>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.5 4.5 8.5 4.5 8.5S12.5 9.5 12.5 6A4.5 4.5 0 0 0 8 1.5Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/>
-          </svg>
-          <span style={cityTextStyle}>{game.address ?? game.city}</span>
-        </span>
-        <span style={{ ...badgeBase, background: badge.bg, color: badge.color }}>
-          {badge.label}
-        </span>
-      </div>
-
-      {/* Title */}
-      <h2 style={titleStyle}>{game.title}</h2>
-
-      {/* Date */}
-      <p style={metaStyle}>
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: "1px" }}>
-          <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
-          <path d="M5 1v3M11 1v3M1.5 6.5h13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-        </svg>
-        {dateStr}
-      </p>
-
-      {/* Stats */}
-      <div style={statsRowStyle}>
-        <span style={statChipStyle}>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-            <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
-            <path d="M1.5 13c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            <circle cx="11.5" cy="5" r="2" stroke="currentColor" strokeWidth="1.2"/>
-            <path d="M14.5 13c0-2-1.343-3.678-3.2-4.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-          </svg>
-          Участвуют: <strong>{game.confirmedCount}/{game.minPlayers}</strong>
-        </span>
-        {game.waitlistCount > 0 && (
-          <span style={{ ...statChipStyle, background: "#fffbeb", color: "#b45309" }}>
-            Очередь: <strong>{game.waitlistCount}</strong>
-          </span>
+        ) : (
+          <div style={thumbPlaceholderStyle}>
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.5 4.5 8.5 4.5 8.5S12.5 9.5 12.5 6A4.5 4.5 0 0 0 8 1.5Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="#cbd5e1"/>
+            </svg>
+          </div>
         )}
       </div>
 
-      {/* Creator */}
-      <p style={creatorStyle}>
-        Организатор: {game.createdBy.name ?? game.createdBy.email}
-      </p>
+      {/* Content */}
+      <div style={rowContentStyle}>
 
-      </div>{/* end card body */}
+        {/* Title + badges */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "5px" }}>
+          <span style={rowTitleStyle}>{game.title}</span>
+          <div style={{ display: "flex", gap: "5px", flexShrink: 0, marginTop: "1px" }}>
+            <span style={{ ...badgeBase, background: "#f0fdf4", color: "#16a34a" }}>
+              {GAME_TYPE_LABEL[game.gameType]}
+            </span>
+            <span style={{ ...badgeBase, background: badge.bg, color: badge.color }}>
+              {badge.label}
+            </span>
+          </div>
+        </div>
+
+        {/* City + date */}
+        <div style={rowMetaStyle}>
+          <span style={rowMetaItemStyle}>
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+              <path d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.5 4.5 8.5 4.5 8.5S12.5 9.5 12.5 6A4.5 4.5 0 0 0 8 1.5Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/>
+            </svg>
+            {game.address ?? game.city}
+          </span>
+          <span style={rowMetaItemStyle}>
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M5 1v3M11 1v3M1.5 6.5h13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            {dateStr}
+          </span>
+        </div>
+
+        {/* Stats + creator */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "6px" }}>
+          <div style={{ display: "flex", gap: "5px" }}>
+            <span style={chipStyle}>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M1.5 13c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                <circle cx="11.5" cy="5" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                <path d="M14.5 13c0-2-1.343-3.678-3.2-4.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              <strong>{game.confirmedCount}</strong>/{game.minPlayers}
+            </span>
+            {game.waitlistCount > 0 && (
+              <span style={{ ...chipStyle, background: "#fffbeb", color: "#b45309" }}>
+                +{game.waitlistCount} в очереди
+              </span>
+            )}
+            {game.myStatus === "confirmed" && (
+              <span style={{ ...chipStyle, background: "#f0fdf4", color: "#16a34a" }}>✓ Участвую</span>
+            )}
+            {game.myStatus === "waitlist" && (
+              <span style={{ ...chipStyle, background: "#fffbeb", color: "#b45309" }}>🕐 В очереди</span>
+            )}
+          </div>
+          <span style={creatorStyle}>
+            {game.createdBy.name ?? game.createdBy.email}
+          </span>
+        </div>
+
+      </div>
     </Link>
   );
 }
 
 /* ─── Styles ──────────────────────────────────────────────── */
 
-const pageStyle: React.CSSProperties = {
-  flex: 1, background: "var(--surface)", padding: "40px 24px",
+const mainStyle: React.CSSProperties = {
+  flex:       1,
+  display:    "flex",
+  overflow:   "hidden",
+  minHeight:  0,          // необходимо чтобы flex-child не вырастал за пределы родителя
+  background: "var(--surface)",
 };
 
-const innerStyle: React.CSSProperties = {
-  maxWidth: "960px", margin: "0 auto",
+const leftPanelStyle: React.CSSProperties = {
+  width:          "60%",
+  flexShrink:     0,
+  display:        "flex",
+  flexDirection:  "column",
+  overflow:       "hidden",
+  borderRight:    "1px solid #e5e7eb",
+  background:     "var(--surface)",
+};
+
+const topAreaStyle: React.CSSProperties = {
+  flexShrink: 0,
+  padding:    "24px 20px 0",
+  background: "var(--surface)",
+};
+
+const listStyle: React.CSSProperties = {
+  flex:       1,
+  overflowY:  "auto",
+  padding:    "12px 20px 24px",
+};
+
+const mapPanelStyle: React.CSSProperties = {
+  flex:     1,
+  position: "relative",
+  minWidth: 0,
 };
 
 const headingStyle: React.CSSProperties = {
-  fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "26px",
-  letterSpacing: "-0.4px", color: "var(--foreground)", margin: 0,
-};
-
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-  gap: "16px",
-};
-
-const cardStyle: React.CSSProperties = {
-  background: "#ffffff", borderRadius: "var(--radius-lg)",
-  boxShadow: "var(--shadow-drop)",
-  display: "flex", flexDirection: "column",
-  textDecoration: "none", color: "inherit",
-  transition: "box-shadow 0.15s, transform 0.15s",
-  cursor: "pointer",
-  overflow: "hidden",
-};
-
-const cityStyle: React.CSSProperties = {
-  display: "flex", alignItems: "flex-start", gap: "4px",
-  fontFamily: "var(--font-ui)", fontSize: "13px", fontWeight: 600, color: "var(--muted)",
-  overflow: "hidden",
-};
-
-const cityTextStyle: React.CSSProperties = {
-  display: "-webkit-box",
-  WebkitLineClamp: 3,
-  WebkitBoxOrient: "vertical",
-  overflow: "hidden",
-};
-
-const badgeBase: React.CSSProperties = {
-  padding: "3px 8px", borderRadius: "100px",
-  fontSize: "12px", fontWeight: 600, fontFamily: "var(--font-ui)",
-};
-
-const titleStyle: React.CSSProperties = {
-  fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "17px",
-  letterSpacing: "-0.2px", color: "var(--foreground)", margin: "0 0 8px",
-  wordBreak: "break-word",
-  display: "-webkit-box",
-  WebkitLineClamp: 3,
-  WebkitBoxOrient: "vertical",
-  overflow: "hidden",
-};
-
-const metaStyle: React.CSSProperties = {
-  display: "flex", alignItems: "flex-start", gap: "5px",
-  fontFamily: "var(--font-ui)", fontSize: "13px", color: "var(--muted)", margin: "0 0 12px",
-};
-
-const statsRowStyle: React.CSSProperties = {
-  display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px",
-};
-
-const statChipStyle: React.CSSProperties = {
-  display: "inline-flex", alignItems: "center", gap: "4px",
-  padding: "4px 10px", borderRadius: "100px",
-  background: "#eff6ff", color: "#2563eb",
-  fontFamily: "var(--font-ui)", fontSize: "13px",
-};
-
-const creatorStyle: React.CSSProperties = {
-  fontFamily: "var(--font-ui)", fontSize: "13px", color: "var(--muted)", margin: "auto 0 0",
-  paddingTop: "8px",
-};
-
-const mutedText: React.CSSProperties = {
-  fontFamily: "var(--font-ui)", fontSize: "15px", color: "var(--muted)",
-};
-
-
-const mapBtnStyle: React.CSSProperties = {
-  display:      "inline-flex",
-  alignItems:   "center",
-  gap:          "6px",
-  padding:      "8px 16px",
-  borderRadius: "10px",
-  border:       "1.5px solid var(--primary)",
-  background:   "transparent",
-  color:        "var(--primary)",
-  fontFamily:   "var(--font-ui)",
-  fontWeight:   600,
-  fontSize:     "14px",
-  cursor:       "pointer",
-  transition:   "background 0.12s",
-};
-
-const mapPreviewWrapStyle: React.CSSProperties = {
-  width: "100%", height: "140px", overflow: "hidden", flexShrink: 0,
-};
-
-const mapPreviewImgStyle: React.CSSProperties = {
-  width: "100%", height: "100%", objectFit: "cover", display: "block",
-};
-
-const cardBodyStyle: React.CSSProperties = {
-  padding: "16px 20px 20px", display: "flex", flexDirection: "column", flex: 1,
-};
-
-const filtersRowStyle: React.CSSProperties = {
-  display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "12px",
-  marginBottom: "24px",
-  padding: "16px 20px",
-  background: "#ffffff",
-  borderRadius: "var(--radius-lg)",
-  boxShadow: "var(--shadow-drop)",
-};
-
-const filterGroupStyle: React.CSSProperties = {
-  display: "flex", flexDirection: "column", gap: "4px",
-};
-
-const filterLabelStyle: React.CSSProperties = {
-  fontFamily: "var(--font-ui)", fontSize: "12px", fontWeight: 600,
-  color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.4px",
-};
-
-const sharedInputStyle: React.CSSProperties = {
-  height: "36px",
-  padding: "0 10px",
-  border: "1.5px solid #e5e7eb",
-  borderRadius: "8px",
-  fontFamily: "var(--font-ui)",
-  fontSize: "14px",
-  color: "var(--foreground)",
-  background: "#fff",
-  outline: "none",
-};
-
-const selectStyle: React.CSSProperties = {
-  ...sharedInputStyle,
-  minWidth: "180px",
-  paddingRight: "28px",
-  appearance: "none",
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E")`,
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 8px center",
-};
-
-const inputStyle: React.CSSProperties = {
-  ...sharedInputStyle,
-  minWidth: "150px",
-};
-
-const clearBtnStyle: React.CSSProperties = {
-  height: "36px",
-  padding: "0 14px",
-  border: "1.5px solid #e5e7eb",
-  borderRadius: "8px",
-  background: "transparent",
-  fontFamily: "var(--font-ui)",
-  fontSize: "13px",
-  fontWeight: 600,
-  color: "var(--muted)",
-  cursor: "pointer",
-  alignSelf: "flex-end",
-  transition: "border-color 0.12s, color 0.12s",
+  fontFamily:    "var(--font-ui)",
+  fontWeight:    800,
+  fontSize:      "22px",
+  letterSpacing: "-0.4px",
+  color:         "var(--foreground)",
+  margin:        "0 0 14px",
 };
 
 const tabsRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "8px",
-  marginBottom: "16px",
+  display:      "flex",
+  gap:          "6px",
+  marginBottom: "12px",
 };
 
-const tabBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "6px",
-  padding: "8px 18px",
-  borderRadius: "10px",
-  border: "1.5px solid #e5e7eb",
-  background: "transparent",
-  color: "var(--muted)",
-  fontFamily: "var(--font-ui)",
-  fontWeight: 600,
-  fontSize: "14px",
-  cursor: "pointer",
-  transition: "border-color 0.12s, color 0.12s",
+const tabBtn: React.CSSProperties = {
+  display:      "inline-flex",
+  alignItems:   "center",
+  padding:      "6px 14px",
+  borderRadius: "8px",
+  border:       "1.5px solid #e5e7eb",
+  background:   "transparent",
+  color:        "var(--muted)",
+  fontFamily:   "var(--font-ui)",
+  fontWeight:   600,
+  fontSize:     "13px",
+  cursor:       "pointer",
 };
 
-const activeTabBtnStyle: React.CSSProperties = {
-  ...tabBtnStyle,
-  border: "1.5px solid var(--primary)",
+const activeTabBtn: React.CSSProperties = {
+  ...tabBtn,
+  border:     "1.5px solid var(--primary)",
   background: "var(--primary)",
-  color: "#ffffff",
+  color:      "#ffffff",
 };
 
-const myGamesDotStyle: React.CSSProperties = {
-  position: "absolute",
-  top: "6px",
-  right: "6px",
-  width: "8px",
-  height: "8px",
+const dotStyle: React.CSSProperties = {
+  position:     "absolute",
+  top:          "5px",
+  right:        "5px",
+  width:        "7px",
+  height:       "7px",
   borderRadius: "50%",
-  background: "#22c55e",
-  border: "1.5px solid #ffffff",
+  background:   "#22c55e",
+  border:       "1.5px solid #ffffff",
+};
+
+const filtersStyle: React.CSSProperties = {
+  display:      "flex",
+  flexWrap:     "wrap",
+  gap:          "8px",
+  marginBottom: "10px",
+};
+
+const sharedInput: React.CSSProperties = {
+  height:     "34px",
+  padding:    "0 10px",
+  border:     "1.5px solid #e5e7eb",
+  borderRadius: "8px",
+  fontFamily: "var(--font-ui)",
+  fontSize:   "13px",
+  color:      "var(--foreground)",
+  background: "#fff",
+  outline:    "none",
+};
+
+const selectStyle: React.CSSProperties = {
+  ...sharedInput,
+  minWidth:        "150px",
+  paddingRight:    "26px",
+  appearance:      "none",
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E")`,
+  backgroundRepeat:   "no-repeat",
+  backgroundPosition: "right 8px center",
+};
+
+const dateInputStyle: React.CSSProperties = {
+  ...sharedInput,
+  minWidth: "130px",
+};
+
+const clearBtnStyle: React.CSSProperties = {
+  ...sharedInput,
+  padding:  "0 12px",
+  color:    "var(--muted)",
+  cursor:   "pointer",
+  fontWeight: 600,
+};
+
+const countStyle: React.CSSProperties = {
+  fontFamily: "var(--font-ui)",
+  fontSize:   "12px",
+  color:      "var(--muted)",
+  margin:     "0 0 8px",
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.4px",
+};
+
+const mutedText: React.CSSProperties = {
+  fontFamily: "var(--font-ui)",
+  fontSize:   "14px",
+  color:      "var(--muted)",
+  padding:    "8px 0",
+};
+
+/* ── Row card ── */
+
+const rowStyle: React.CSSProperties = {
+  display:        "flex",
+  gap:            0,
+  background:     "#ffffff",
+  borderRadius:   "12px",
+  overflow:       "hidden",
+  boxShadow:      "var(--shadow-drop)",
+  textDecoration: "none",
+  color:          "inherit",
+  marginBottom:   "10px",
+  transition:     "box-shadow 0.15s",
+  cursor:         "pointer",
+};
+
+const thumbWrapStyle: React.CSSProperties = {
+  width:      "270px",
+  height:     "200px",
+  flexShrink: 0,
+  overflow:   "hidden",
+  background: "#f1f5f9",
+};
+
+const thumbImgStyle: React.CSSProperties = {
+  width:      "100%",
+  height:     "100%",
+  objectFit:  "cover",
+  display:    "block",
+};
+
+const thumbPlaceholderStyle: React.CSSProperties = {
+  width:          "100%",
+  height:         "100%",
+  minHeight:      "200px",
+  display:        "flex",
+  alignItems:     "center",
+  justifyContent: "center",
+  background:     "#f1f5f9",
+};
+
+const rowContentStyle: React.CSSProperties = {
+  flex:    1,
+  padding: "12px 14px",
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+};
+
+const rowTitleStyle: React.CSSProperties = {
+  fontFamily:    "var(--font-ui)",
+  fontWeight:    700,
+  fontSize:      "15px",
+  color:         "var(--foreground)",
+  letterSpacing: "-0.1px",
+  flex:          1,
+  minWidth:      0,
+  overflow:      "hidden",
+  textOverflow:  "ellipsis",
+  whiteSpace:    "nowrap",
+};
+
+const badgeBase: React.CSSProperties = {
+  padding:      "2px 7px",
+  borderRadius: "100px",
+  fontSize:     "11px",
+  fontWeight:   600,
+  fontFamily:   "var(--font-ui)",
+  whiteSpace:   "nowrap",
+};
+
+const rowMetaStyle: React.CSSProperties = {
+  display:    "flex",
+  flexWrap:   "wrap",
+  gap:        "10px",
+  marginBottom: "2px",
+};
+
+const rowMetaItemStyle: React.CSSProperties = {
+  display:    "inline-flex",
+  alignItems: "center",
+  gap:        "3px",
+  fontFamily: "var(--font-ui)",
+  fontSize:   "12px",
+  color:      "var(--muted)",
+  overflow:   "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace:   "nowrap",
+  maxWidth:     "160px",
+};
+
+const chipStyle: React.CSSProperties = {
+  display:      "inline-flex",
+  alignItems:   "center",
+  gap:          "3px",
+  padding:      "2px 8px",
+  borderRadius: "100px",
+  background:   "#eff6ff",
+  color:        "#2563eb",
+  fontFamily:   "var(--font-ui)",
+  fontSize:     "12px",
+};
+
+const creatorStyle: React.CSSProperties = {
+  fontFamily:   "var(--font-ui)",
+  fontSize:     "12px",
+  color:        "var(--muted)",
+  whiteSpace:   "nowrap",
+  overflow:     "hidden",
+  textOverflow: "ellipsis",
+  maxWidth:     "120px",
 };
