@@ -248,7 +248,7 @@ export default function Home() {
         </div>
 
         {/* Scrollable list */}
-        <div ref={listRef} style={listStyle}>
+        <div ref={listRef} style={listStyle} className="no-scrollbar">
           {loading ? null : filteredGames.length === 0 ? (
             <p style={mutedText}>{emptyMsg}</p>
           ) : (
@@ -270,11 +270,13 @@ export default function Home() {
 
       {/* ── Right panel: inline map ── */}
       <div style={mapPanelStyle}>
-        <InlineSideMap
-          games={mapPins}
-          selectedGameId={selectedGameId}
-          onSelect={handleMapSelect}
-        />
+        <div style={mapInnerStyle}>
+          <InlineSideMap
+            games={mapPins}
+            selectedGameId={selectedGameId}
+            onSelect={handleMapSelect}
+          />
+        </div>
       </div>
 
     </main>
@@ -431,20 +433,30 @@ const leftPanelStyle: React.CSSProperties = {
 
 const topAreaStyle: React.CSSProperties = {
   flexShrink: 0,
-  padding:    "24px 20px 0",
+  padding:    "16px 20px 0 16px",
   background: "var(--surface)",
 };
 
 const listStyle: React.CSSProperties = {
   flex:       1,
   overflowY:  "auto",
-  padding:    "12px 20px 24px",
-};
+  padding:    "12px 20px 16px 16px",
+  scrollbarWidth: "none",
+  msOverflowStyle: "none",
+} as React.CSSProperties;
 
 const mapPanelStyle: React.CSSProperties = {
   flex:     1,
-  position: "relative",
   minWidth: 0,
+  padding:  "16px 16px 16px 0",
+};
+
+const mapInnerStyle: React.CSSProperties = {
+  width:        "100%",
+  height:       "100%",
+  borderRadius: "16px",
+  overflow:     "hidden",
+  boxShadow:    "var(--shadow-drop)",
 };
 
 const headingStyle: React.CSSProperties = {

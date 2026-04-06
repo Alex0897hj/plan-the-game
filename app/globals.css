@@ -5,8 +5,8 @@
   --foreground:     #1a1a1a;
   --muted:          #6b7280;
   --border:         #e5e7eb;
-  --surface:        #f7f7f8;
-  --surface-hover:  #f0f0f3;
+  --surface:        #ffffff;
+  --surface-hover:  #f5f5f7;
 
   --primary:        rgb(89, 60, 251);
   --primary-hover:  rgb(70, 45, 220);
@@ -50,6 +50,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ─── Buttons ────────────────────────────────────────────── */
 
