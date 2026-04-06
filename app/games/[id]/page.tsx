@@ -94,9 +94,10 @@ export default function GamePage() {
 
   const currentUser    = (() => { try { return JSON.parse(localStorage.getItem("user") ?? "null"); } catch { return null; } })();
   const isLoggedIn     = !!getAccessToken();
+  const isAdmin        = isLoggedIn && !!currentUser?.isAdmin;
   const isCreator      = isLoggedIn && currentUser?.id === game.createdBy.id;
   const canParticipate = isLoggedIn && !isCreator && game.status === "upcoming";
-  const canCancel      = isCreator && game.status === "upcoming";
+  const canCancel      = (isCreator || isAdmin) && game.status === "upcoming";
 
   const dateStr = new Date(game.gameDateTime).toLocaleString("ru-RU", {
     day: "numeric", month: "long", year: "numeric",

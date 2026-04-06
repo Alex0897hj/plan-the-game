@@ -75,10 +75,13 @@ export async function PATCH(
     if (body?.status !== "cancelled")
       return err(400, "VALIDATION_ERROR", "Допустимое значение status: cancelled");
 
-    const game = await prisma.game.findUnique({ where: { id: gameId } });
-    if (!game)                       return err(404, "NOT_FOUND",  "Игра не найдена");
-    if (game.createdById !== me.sub)  return err(403, "FORBIDDEN", "Только создатель может отменить игру");
-    if (game.status !== "upcoming")   return err(409, "CONFLICT",  "Можно отменить только предстоящую игру");
+    const [game, actor] = await Promise.all([
+      prisma.game.findUnique({ where: { id: gameId } }),
+      prisma.user.findUnique({ where: { id: me.sub }, select: { isAdmin: true } }),
+    ]);
+    if (!game)                                              return err(404, "NOT_FOUND",  "Игра не найдена");
+    if (!actor?.isAdmin && game.createdById !== me.sub)     return err(403, "FORBIDDEN",  "Только создатель может отменить игру");
+    if (game.status !== "upcoming")                         return err(409, "CONFLICT",   "Можно отменить только предстоящую игру");
 
     const updated = await prisma.game.update({
       where: { id: gameId },
