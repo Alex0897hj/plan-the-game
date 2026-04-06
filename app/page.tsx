@@ -41,6 +41,7 @@ interface Game {
   myStatus:       "confirmed" | "waitlist" | null;
   latitude:       number | null;
   longitude:      number | null;
+  address:        string | null;
 }
 
 const STATIC_MAP_KEY = "7ae6ca34-545f-4776-a78b-b5fa4c11d71f";
@@ -273,7 +274,7 @@ function GameCard({ game }: { game: Game }) {
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
             <path d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.5 4.5 8.5 4.5 8.5S12.5 9.5 12.5 6A4.5 4.5 0 0 0 8 1.5Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/>
           </svg>
-          {game.city}
+          <span style={cityTextStyle}>{game.address ?? game.city}</span>
         </span>
         <span style={{ ...badgeBase, background: badge.bg, color: badge.color }}>
           {badge.label}
@@ -352,8 +353,16 @@ const cardStyle: React.CSSProperties = {
 };
 
 const cityStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: "4px",
+  display: "flex", alignItems: "flex-start", gap: "4px",
   fontFamily: "var(--font-ui)", fontSize: "13px", fontWeight: 600, color: "var(--muted)",
+  overflow: "hidden",
+};
+
+const cityTextStyle: React.CSSProperties = {
+  display: "-webkit-box",
+  WebkitLineClamp: 3,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
 };
 
 const badgeBase: React.CSSProperties = {
@@ -364,6 +373,11 @@ const badgeBase: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontWeight: 700, fontSize: "17px",
   letterSpacing: "-0.2px", color: "var(--foreground)", margin: "0 0 8px",
+  wordBreak: "break-word",
+  display: "-webkit-box",
+  WebkitLineClamp: 3,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
 };
 
 const metaStyle: React.CSSProperties = {
@@ -391,12 +405,6 @@ const mutedText: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontSize: "15px", color: "var(--muted)",
 };
 
-const topRowStyle: React.CSSProperties = {
-  display:        "flex",
-  alignItems:     "center",
-  justifyContent: "space-between",
-  marginBottom:   "24px",
-};
 
 const mapBtnStyle: React.CSSProperties = {
   display:      "inline-flex",

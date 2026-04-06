@@ -94,6 +94,7 @@ export default function CreateGamePage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Например: Футбол во дворе"
+              maxLength={160}
               className={`input${fieldErrors.title ? " input--error" : ""}`}
             />
           </Field>

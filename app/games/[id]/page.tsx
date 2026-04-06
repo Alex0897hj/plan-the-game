@@ -411,6 +411,7 @@ const badgeBase: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontWeight: 800, fontSize: "22px",
   letterSpacing: "-0.4px", color: "var(--foreground)", margin: "0 0 10px",
+  wordBreak: "break-word",
 };
 
 const metaRowStyle: React.CSSProperties = {
@@ -420,7 +421,7 @@ const metaRowStyle: React.CSSProperties = {
 
 const descStyle: React.CSSProperties = {
   fontFamily: "var(--font-ui)", fontSize: "15px", color: "var(--foreground)",
-  lineHeight: "1.6", margin: "0 0 14px", whiteSpace: "pre-wrap",
+  lineHeight: "1.6", margin: "0 0 14px", whiteSpace: "pre-wrap", wordBreak: "break-word",
 };
 
 const organizerStyle: React.CSSProperties = {
