@@ -36,19 +36,6 @@ const GAME_TYPE_LABEL: Record<GameType, string> = {
   eight_x_eight: "8×8",
 };
 
-const STATIC_MAP_KEY = "7ae6ca34-545f-4776-a78b-b5fa4c11d71f";
-
-function staticThumbUrl(lat: number, lng: number): string {
-  return (
-    `https://static-maps.yandex.ru/v1` +
-    `?apikey=${STATIC_MAP_KEY}` +
-    `&ll=${lng},${lat}` +
-    `&z=15` +
-    `&size=540,400` +
-    `&pt=${lng},${lat},pm2rdm` +
-    `&lang=ru_RU`
-  );
-}
 
 interface Game {
   id:             number;
@@ -295,28 +282,25 @@ function pluralGames(n: number): string {
 /* ─── Game Row ──────────────────────────────────────────────── */
 
 function GameRow({ game, isSelected, onSelect, cardRef }: {
-  game:      Game;
+  game:       Game;
   isSelected: boolean;
-  onSelect:  (id: number) => void;
-  cardRef:   (el: HTMLAnchorElement | null) => void;
+  onSelect:   (id: number) => void;
+  cardRef:    (el: HTMLAnchorElement | null) => void;
 }) {
-  const dateStr = new Date(game.gameDateTime).toLocaleString("ru-RU", {
-    day: "numeric", month: "short",
-    hour: "2-digit", minute: "2-digit",
-  });
+  const dt    = new Date(game.gameDateTime);
+  const now   = new Date();
+  const isPast = dt < now;
 
-  const isPast = new Date(game.gameDateTime) < new Date();
-  const statusMap: Record<Game["status"], { bg: string; color: string; label: string }> = {
-    upcoming:  isPast ? { bg: "#f1f5f9", color: "#64748b", label: "Истекла" }
-                      : { bg: "#eff6ff", color: "#2563eb", label: "Скоро"   },
-    completed: { bg: "#f0fdf4", color: "#16a34a", label: "Завершена" },
-    cancelled: { bg: "#fef2f2", color: "#dc2626", label: "Отменена"  },
-  };
-  const badge = statusMap[game.status];
-  const hasThumb = game.latitude != null && game.longitude != null;
+  const dayMonth = dt.toLocaleString("ru-RU", { day: "numeric", month: "long" }); // "7 апреля"
+  const [day, month] = dayMonth.split(" ");
+  const timeStr = dt.toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+  // "скоро" — в ближайшие 48 часов, игра ещё не прошла
+  const hoursLeft = (dt.getTime() - now.getTime()) / 3_600_000;
+  const isSoon    = !isPast && game.status === "upcoming" && hoursLeft <= 48;
 
   const selectedRowStyle: React.CSSProperties = isSelected
-    ? { ...rowStyle, boxShadow: "0 0 0 2px var(--primary)", background: "#eff6ff" }
+    ? { ...rowStyle, boxShadow: "0 0 0 2px var(--primary)", background: "#f5f7ff" }
     : rowStyle;
 
   return (
@@ -327,82 +311,70 @@ function GameRow({ game, isSelected, onSelect, cardRef }: {
       onClick={() => onSelect(game.id)}
     >
 
-      {/* Thumbnail */}
-      <div style={thumbWrapStyle}>
-        {hasThumb ? (
-          <img
-            src={staticThumbUrl(game.latitude!, game.longitude!)}
-            alt=""
-            style={thumbImgStyle}
-          />
-        ) : (
-          <div style={thumbPlaceholderStyle}>
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-              <path d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.5 4.5 8.5 4.5 8.5S12.5 9.5 12.5 6A4.5 4.5 0 0 0 8 1.5Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="#cbd5e1"/>
-            </svg>
-          </div>
-        )}
+      {/* Left: date block */}
+      <div style={datePanelStyle}>
+        <span style={dateDayStyle}>{day}</span>
+        <span style={dateMonthStyle}>{month}</span>
+        <span style={dateTimeStyle}>{timeStr}</span>
       </div>
 
-      {/* Content */}
+      {/* Divider */}
+      <div style={dividerStyle} />
+
+      {/* Right: info */}
       <div style={rowContentStyle}>
 
-        {/* Title + badges */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "5px" }}>
+        {/* Title + "Скоро" */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px", marginBottom: "6px" }}>
           <span style={rowTitleStyle}>{game.title}</span>
-          <div style={{ display: "flex", gap: "5px", flexShrink: 0, marginTop: "1px" }}>
-            <span style={{ ...badgeBase, background: "#f0fdf4", color: "#16a34a" }}>
-              {GAME_TYPE_LABEL[game.gameType]}
+          {isSoon && (
+            <span style={{ ...badgeBase, background: "#fef3c7", color: "#d97706", flexShrink: 0 }}>
+              Скоро
             </span>
-            <span style={{ ...badgeBase, background: badge.bg, color: badge.color }}>
-              {badge.label}
-            </span>
-          </div>
+          )}
         </div>
 
-        {/* City + date */}
-        <div style={rowMetaStyle}>
+        {/* Address */}
+        {(game.address ?? game.city) && (
           <span style={rowMetaItemStyle}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
               <path d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.5 4.5 8.5 4.5 8.5S12.5 9.5 12.5 6A4.5 4.5 0 0 0 8 1.5Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/>
             </svg>
             {game.address ?? game.city}
           </span>
-          <span style={rowMetaItemStyle}>
+        )}
+
+        {/* Players */}
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", margin: "8px 0 6px" }}>
+          <span style={chipStyle}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-              <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
-              <path d="M5 1v3M11 1v3M1.5 6.5h13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M1.5 13c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <circle cx="11.5" cy="5" r="2" stroke="currentColor" strokeWidth="1.2"/>
+              <path d="M14.5 13c0-2-1.343-3.678-3.2-4.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
             </svg>
-            {dateStr}
+            <strong>{game.confirmedCount}</strong>/{game.minPlayers}
           </span>
+          {game.waitlistCount > 0 && (
+            <span style={{ ...chipStyle, background: "#fffbeb", color: "#b45309" }}>
+              +{game.waitlistCount} в очереди
+            </span>
+          )}
+          {game.myStatus === "confirmed" && (
+            <span style={{ ...chipStyle, background: "#f0fdf4", color: "#16a34a" }}>✓ Участвую</span>
+          )}
+          {game.myStatus === "waitlist" && (
+            <span style={{ ...chipStyle, background: "#fffbeb", color: "#b45309" }}>🕐 В очереди</span>
+          )}
         </div>
 
-        {/* Stats + creator */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "6px" }}>
-          <div style={{ display: "flex", gap: "5px" }}>
-            <span style={chipStyle}>
-              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
-                <path d="M1.5 13c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                <circle cx="11.5" cy="5" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                <path d="M14.5 13c0-2-1.343-3.678-3.2-4.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-              </svg>
-              <strong>{game.confirmedCount}</strong>/{game.minPlayers}
-            </span>
-            {game.waitlistCount > 0 && (
-              <span style={{ ...chipStyle, background: "#fffbeb", color: "#b45309" }}>
-                +{game.waitlistCount} в очереди
-              </span>
-            )}
-            {game.myStatus === "confirmed" && (
-              <span style={{ ...chipStyle, background: "#f0fdf4", color: "#16a34a" }}>✓ Участвую</span>
-            )}
-            {game.myStatus === "waitlist" && (
-              <span style={{ ...chipStyle, background: "#fffbeb", color: "#b45309" }}>🕐 В очереди</span>
-            )}
-          </div>
+        {/* Game type + Organizer */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "2px" }}>
+          <span style={{ ...badgeBase, background: "#f0fdf4", color: "#16a34a" }}>
+            {GAME_TYPE_LABEL[game.gameType]}
+          </span>
           <span style={creatorStyle}>
-            {game.createdBy.name ?? game.createdBy.email}
+            Организатор: {game.createdBy.name ?? game.createdBy.email}
           </span>
         </div>
 
@@ -581,36 +553,55 @@ const rowStyle: React.CSSProperties = {
   cursor:         "pointer",
 };
 
-const thumbWrapStyle: React.CSSProperties = {
-  width:      "270px",
-  height:     "200px",
-  flexShrink: 0,
-  overflow:   "hidden",
-  background: "#f1f5f9",
-};
-
-const thumbImgStyle: React.CSSProperties = {
-  width:      "100%",
-  height:     "100%",
-  objectFit:  "cover",
-  display:    "block",
-};
-
-const thumbPlaceholderStyle: React.CSSProperties = {
-  width:          "100%",
-  height:         "100%",
-  minHeight:      "200px",
+const datePanelStyle: React.CSSProperties = {
+  width:          "90px",
+  flexShrink:     0,
   display:        "flex",
+  flexDirection:  "column",
   alignItems:     "center",
   justifyContent: "center",
-  background:     "#f1f5f9",
+  padding:        "16px 12px",
+  background:     "#f8fafc",
+  gap:            "2px",
+};
+
+const dateDayStyle: React.CSSProperties = {
+  fontFamily:    "var(--font-ui)",
+  fontWeight:    800,
+  fontSize:      "36px",
+  lineHeight:    1,
+  color:         "var(--foreground)",
+  letterSpacing: "-1px",
+};
+
+const dateMonthStyle: React.CSSProperties = {
+  fontFamily: "var(--font-ui)",
+  fontSize:   "13px",
+  fontWeight: 500,
+  color:      "var(--muted)",
+  textTransform: "capitalize",
+};
+
+const dateTimeStyle: React.CSSProperties = {
+  fontFamily: "var(--font-ui)",
+  fontSize:   "12px",
+  fontWeight: 600,
+  color:      "var(--foreground)",
+  marginTop:  "4px",
+};
+
+const dividerStyle: React.CSSProperties = {
+  width:      "1px",
+  flexShrink: 0,
+  background: "#e5e7eb",
+  alignSelf:  "stretch",
 };
 
 const rowContentStyle: React.CSSProperties = {
-  flex:    1,
-  padding: "12px 14px",
-  minWidth: 0,
-  display: "flex",
+  flex:          1,
+  padding:       "14px 16px",
+  minWidth:      0,
+  display:       "flex",
   flexDirection: "column",
   justifyContent: "center",
 };
@@ -646,15 +637,11 @@ const rowMetaStyle: React.CSSProperties = {
 
 const rowMetaItemStyle: React.CSSProperties = {
   display:    "inline-flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   gap:        "3px",
   fontFamily: "var(--font-ui)",
   fontSize:   "12px",
   color:      "var(--muted)",
-  overflow:   "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace:   "nowrap",
-  maxWidth:     "160px",
 };
 
 const chipStyle: React.CSSProperties = {
