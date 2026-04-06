@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
+import { minPlayersFromType } from "@/lib/game-types";
 
 function err(status: number, error: string, message: string) {
   return NextResponse.json({ error, message }, { status });
@@ -41,6 +42,7 @@ export async function GET(
 
     return NextResponse.json({
       ...game,
+      minPlayers:     minPlayersFromType(game.gameType),
       confirmedCount: confirmed.length,
       waitlistCount:  waitlist.length,
       confirmedList:  confirmed.map((p) => p.user),

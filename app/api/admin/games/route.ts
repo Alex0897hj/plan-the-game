@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
+import { minPlayersFromType } from "@/lib/game-types";
 
 function err(status: number, error: string, message: string) {
   return NextResponse.json({ error, message }, { status });
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     const waitlistCount  = g.participants.filter((p) =>  p.isWaitlist).length;
     const { participants, ...rest } = g;
     void participants;
-    return { ...rest, confirmedCount, waitlistCount, myStatus: null, address: g.address ?? null };
+    return { ...rest, minPlayers: minPlayersFromType(g.gameType), confirmedCount, waitlistCount, myStatus: null, address: g.address ?? null };
   });
 
   return NextResponse.json(result);

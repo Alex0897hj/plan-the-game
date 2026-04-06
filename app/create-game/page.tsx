@@ -5,11 +5,19 @@ import { useRouter } from "next/navigation";
 import { getAccessToken } from "@/app/lib/auth-api";
 import LocationPicker, { type PickedLocation } from "@/app/components/LocationPicker";
 
+type GameType = "five_x_five" | "seven_x_seven" | "eight_x_eight";
+
+const GAME_TYPES: Record<GameType, { label: string; minPlayers: number }> = {
+  five_x_five:   { label: "5×5", minPlayers: 10 },
+  seven_x_seven: { label: "7×7", minPlayers: 14 },
+  eight_x_eight: { label: "8×8", minPlayers: 16 },
+};
+
 interface FieldErrors {
   title?:        string;
   description?:  string;
   gameDateTime?: string;
-  minPlayers?:   string;
+  gameType?:     string;
   location?:     string;
 }
 
@@ -27,7 +35,7 @@ export default function CreateGamePage() {
   const [title,        setTitle]        = useState("");
   const [description,  setDescription]  = useState("");
   const [gameDateTime, setGameDateTime] = useState("");
-  const [minPlayers,   setMinPlayers]   = useState("");
+  const [gameType,     setGameType]     = useState<GameType>("five_x_five");
   const [location,     setLocation]     = useState<PickedLocation | null>(null);
   const [fieldErrors,  setFieldErrors]  = useState<FieldErrors>({});
   const [apiError,     setApiError]     = useState<string | null>(null);
@@ -43,8 +51,7 @@ export default function CreateGamePage() {
     if (!title.trim())       e.title        = "Введите название";
     if (!description.trim()) e.description  = "Введите описание";
     if (!gameDateTime)       e.gameDateTime = "Укажите дату и время";
-    const mp = Number(minPlayers);
-    if (!minPlayers || isNaN(mp) || mp < 2) e.minPlayers = "Минимум 2 игрока";
+    if (!gameType)           e.gameType     = "Выберите формат игры";
     if (!location)           e.location     = "Отметьте место проведения на карте";
     return e;
   }
@@ -70,7 +77,7 @@ export default function CreateGamePage() {
           description: description.trim(),
           city:        location!.city,
           gameDateTime,
-          minPlayers:  Number(minPlayers),
+          gameType,
           latitude:    location!.lat,
           longitude:   location!.lng,
           address:     location!.address,
@@ -143,15 +150,18 @@ export default function CreateGamePage() {
               />
             </Field>
 
-            <Field label="Мин. игроков" error={fieldErrors.minPlayers} style={{ flex: "0 0 140px" }}>
-              <input
-                type="number"
-                value={minPlayers}
-                onChange={(e) => setMinPlayers(e.target.value)}
-                placeholder="4"
-                min={2}
-                className={`input${fieldErrors.minPlayers ? " input--error" : ""}`}
-              />
+            <Field label="Формат игры" error={fieldErrors.gameType} style={{ flex: "0 0 180px" }}>
+              <select
+                value={gameType}
+                onChange={(e) => setGameType(e.target.value as GameType)}
+                className={`input${fieldErrors.gameType ? " input--error" : ""}`}
+              >
+                {(Object.entries(GAME_TYPES) as [GameType, { label: string; minPlayers: number }][]).map(([key, cfg]) => (
+                  <option key={key} value={key}>
+                    {cfg.label} ({cfg.minPlayers} игроков)
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
 

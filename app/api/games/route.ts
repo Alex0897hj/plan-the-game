@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
+import { GAME_TYPE_PLAYERS, minPlayersFromType } from "@/lib/game-types";
 
 function err(status: number, error: string, message: string) {
   return NextResponse.json({ error, message }, { status });
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
       const { participants, ...rest } = g;
       void participants;
 
-      return { ...rest, confirmedCount, waitlistCount, myStatus };
+      return { ...rest, minPlayers: minPlayersFromType(g.gameType), confirmedCount, waitlistCount, myStatus };
     });
 
     return NextResponse.json(result);
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     if (!body) return err(400, "VALIDATION_ERROR", "Тело запроса обязательно");
 
-    const { title, description, city, gameDateTime, minPlayers, latitude, longitude, address } = body;
+    const { title, description, city, gameDateTime, gameType, latitude, longitude, address } = body;
 
     if (!title || typeof title !== "string" || !title.trim())
       return err(400, "VALIDATION_ERROR", "Название обязательно");
@@ -70,8 +71,8 @@ export async function POST(req: NextRequest) {
       return err(400, "VALIDATION_ERROR", "Некорректное значение города");
     if (!gameDateTime || isNaN(new Date(gameDateTime).getTime()))
       return err(400, "VALIDATION_ERROR", "Укажите корректную дату и время");
-    if (!minPlayers || typeof minPlayers !== "number" || minPlayers < 2)
-      return err(400, "VALIDATION_ERROR", "Минимальное количество игроков — 2");
+    if (!gameType || !(gameType in GAME_TYPE_PLAYERS))
+      return err(400, "VALIDATION_ERROR", "Выберите формат игры");
     if (typeof latitude !== "number" || typeof longitude !== "number")
       return err(400, "VALIDATION_ERROR", "Отметьте место проведения на карте");
 
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
         description:  description.trim(),
         city:         city.trim(),
         gameDateTime: new Date(gameDateTime),
-        minPlayers,
+        gameType,
         latitude,
         longitude,
         address:      typeof address === "string" ? address.trim() : null,
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(game, { status: 201 });
+    return NextResponse.json({ ...game, minPlayers: minPlayersFromType(game.gameType) }, { status: 201 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[POST /api/games]", msg);

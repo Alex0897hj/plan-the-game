@@ -28,11 +28,15 @@ const RUSSIAN_CITIES = [
   "Якутск", "Ярославль",
 ];
 
+type GameType = "five_x_five" | "seven_x_seven" | "eight_x_eight";
+
+
 interface Game {
   id:             number;
   title:          string;
   city:           string;
   gameDateTime:   string;
+  gameType:       GameType;
   minPlayers:     number;
   status:         "upcoming" | "cancelled" | "completed";
   createdBy:      { id: number; email: string; name: string | null };
@@ -151,6 +155,7 @@ export default function Home() {
             title:          g.title,
             city:           g.city,
             gameDateTime:   g.gameDateTime,
+            gameType:       g.gameType,
             confirmedCount: g.confirmedCount,
             minPlayers:     g.minPlayers,
             lat:            g.latitude!,

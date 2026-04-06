@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { minPlayersFromType } from "@/lib/game-types";
 
 /**
  * GET /api/cron/games/auto-cancel
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
     });
 
     const toCancel = candidates.filter(
-      (g) => g._count.participants < g.minPlayers,
+      (g) => g._count.participants < minPlayersFromType(g.gameType),
     );
 
     if (toCancel.length === 0) {

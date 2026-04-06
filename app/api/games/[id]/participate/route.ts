@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
+import { minPlayersFromType } from "@/lib/game-types";
 
 function err(status: number, error: string, message: string) {
   return NextResponse.json({ error, message }, { status });
@@ -42,7 +43,7 @@ export async function POST(
       where: { gameId, isWaitlist: false },
     });
 
-    const isWaitlist = confirmedCount >= game.minPlayers;
+    const isWaitlist = confirmedCount >= minPlayersFromType(game.gameType);
 
     const participant = await prisma.gameParticipant.create({
       data: { gameId, userId: me.sub, isWaitlist },

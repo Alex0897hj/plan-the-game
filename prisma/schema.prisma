@@ -12,6 +12,12 @@ enum GameStatus {
   completed
 }
 
+enum GameType {
+  five_x_five
+  seven_x_seven
+  eight_x_eight
+}
+
 
 model User {
   id             Int               @id @default(autoincrement())
@@ -42,7 +48,7 @@ model Game {
   description  String
   city         String
   gameDateTime DateTime
-  minPlayers   Int
+  gameType     GameType          @default(five_x_five)
   latitude     Float?
   longitude    Float?
   address      String?

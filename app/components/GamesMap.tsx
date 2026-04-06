@@ -4,11 +4,20 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { loadYmaps } from "@/app/lib/ymaps-loader";
 
+type GameType = "five_x_five" | "seven_x_seven" | "eight_x_eight";
+
+const GAME_TYPE_LABEL: Record<GameType, string> = {
+  five_x_five:   "5×5",
+  seven_x_seven: "7×7",
+  eight_x_eight: "8×8",
+};
+
 interface GamePin {
   id:             number;
   title:          string;
   city:           string;
   gameDateTime:   string;
+  gameType:       GameType;
   confirmedCount: number;
   minPlayers:     number;
   lat:            number;
@@ -63,7 +72,7 @@ export default function GamesMap({ games, onClose }: Props) {
               `<div style="font-family:sans-serif;font-size:13px;line-height:1.5">` +
               `<div>📍 ${game.city}</div>` +
               `<div>🕐 ${dateStr}</div>` +
-              `<div>👥 ${game.confirmedCount}/${game.minPlayers}</div>` +
+              `<div>⚽ ${GAME_TYPE_LABEL[game.gameType]} · 👥 ${game.confirmedCount}/${game.minPlayers}</div>` +
               `<button onclick="window.__gamesMapNav('${game.id}')" ` +
               `style="margin-top:8px;padding:6px 14px;background:#2563eb;color:#fff;` +
               `border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">` +

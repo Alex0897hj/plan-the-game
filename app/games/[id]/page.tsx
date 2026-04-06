@@ -11,12 +11,21 @@ interface Player {
   name:  string | null;
 }
 
+type GameType = "five_x_five" | "seven_x_seven" | "eight_x_eight";
+
+const GAME_TYPE_LABEL: Record<GameType, string> = {
+  five_x_five:   "5×5",
+  seven_x_seven: "7×7",
+  eight_x_eight: "8×8",
+};
+
 interface Game {
   id:             number;
   title:          string;
   description:    string;
   city:           string;
   gameDateTime:   string;
+  gameType:       GameType;
   minPlayers:     number;
   status:         "upcoming" | "cancelled" | "completed";
   createdBy:      Player;
@@ -169,9 +178,14 @@ export default function GamePage() {
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
               <span style={cityStyle}><PinIcon /> {game.city}</span>
-              <span style={{ ...badgeBase, background: badge.bg, color: badge.color }}>
-                {badge.label}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ ...badgeBase, background: "#f0fdf4", color: "#16a34a" }}>
+                  {GAME_TYPE_LABEL[game.gameType]}
+                </span>
+                <span style={{ ...badgeBase, background: badge.bg, color: badge.color }}>
+                  {badge.label}
+                </span>
+              </div>
             </div>
 
             <h1 style={titleStyle}>{game.title}</h1>
@@ -263,7 +277,7 @@ export default function GamePage() {
           {/* Confirmed list */}
           <div style={cardStyle}>
             <p style={sectionLabel}>
-              Основной состав
+                Основной состав
               <span style={countBadge}>{game.confirmedCount}/{game.minPlayers}</span>
             </p>
             {game.confirmedList.length === 0
