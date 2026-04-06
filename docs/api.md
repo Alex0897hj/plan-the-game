@@ -1,6 +1,6 @@
 # API Reference — Plan the Game
 
-Единый источник правды для frontend и backend.  
+Единый источник правды для frontend и backend..  
 Base URL: `/api`
 
 ---
