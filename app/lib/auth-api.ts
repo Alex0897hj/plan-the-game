@@ -1,7 +1,7 @@
 export interface AuthResponse {
   access_token: string;
   refresh_token: string;
-  user: { id: number; email: string; name: string };
+  user: { id: number; email: string; name: string; isAdmin: boolean; canCreateGame: boolean };
 }
 
 export interface ApiError {

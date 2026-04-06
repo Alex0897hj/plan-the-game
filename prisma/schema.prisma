@@ -14,12 +14,14 @@ enum GameStatus {
 
 
 model User {
-  id            Int               @id @default(autoincrement())
-  email         String            @unique
-  password      String
-  name          String            @unique
-  isAdmin       Boolean           @default(false)
-  createdAt     DateTime          @default(now())
+  id             Int               @id @default(autoincrement())
+  email          String            @unique
+  password       String
+  name           String            @unique
+  isAdmin        Boolean           @default(false)
+  isBlocked      Boolean           @default(false)
+  canCreateGame  Boolean           @default(true)
+  createdAt      DateTime          @default(now())
   refreshTokens RefreshToken[]
   games         Game[]
   participations GameParticipant[]

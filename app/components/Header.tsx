@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { clearTokens } from "@/app/lib/auth-api";
 
 interface User {
-  id:    number;
-  email: string;
-  name:  string;
+  id:            number;
+  email:         string;
+  name:          string;
+  isAdmin:       boolean;
+  canCreateGame: boolean;
 }
 
 export default function Header() {
@@ -88,13 +90,24 @@ export default function Header() {
       <nav style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         {user ? (
           <>
-          <Link
-            href="/create-game"
-            className="btn btn-primary"
-            style={{ fontSize: "15px", padding: "10px 20px", minHeight: "40px", borderRadius: "10px" }}
-          >
-            Создать игру
-          </Link>
+          {user.isAdmin && (
+            <Link
+              href="/admin/users"
+              className="btn btn-ghost"
+              style={{ fontSize: "14px", padding: "8px 14px", minHeight: "40px", borderRadius: "10px", color: "var(--muted)" }}
+            >
+              Управление участниками
+            </Link>
+          )}
+          {user.canCreateGame && (
+            <Link
+              href="/create-game"
+              className="btn btn-primary"
+              style={{ fontSize: "15px", padding: "10px 20px", minHeight: "40px", borderRadius: "10px" }}
+            >
+              Создать игру
+            </Link>
+          )}
           <div ref={dropdownRef} style={{ position: "relative" }}>
             {/* Avatar button */}
             <button

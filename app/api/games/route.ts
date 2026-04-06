@@ -53,6 +53,10 @@ export async function POST(req: NextRequest) {
     const user = getUser(req);
     if (!user) return err(401, "UNAUTHORIZED", "Необходима авторизация");
 
+    const dbUser = await prisma.user.findUnique({ where: { id: user.sub }, select: { isBlocked: true, canCreateGame: true } });
+    if (!dbUser || dbUser.isBlocked)      return err(403, "ACCOUNT_BLOCKED",    "Ваш аккаунт заблокирован");
+    if (!dbUser.canCreateGame)            return err(403, "GAMES_CREATION_FORBIDDEN", "Создание игр для вашего аккаунта отключено");
+
     const body = await req.json().catch(() => null);
     if (!body) return err(400, "VALIDATION_ERROR", "Тело запроса обязательно");
 

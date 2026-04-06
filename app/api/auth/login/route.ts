@@ -31,6 +31,10 @@ export async function POST(req: NextRequest) {
       return err(401, "INVALID_CREDENTIALS", "Неверный email или пароль");
     }
 
+    if (user.isBlocked) {
+      return err(403, "ACCOUNT_BLOCKED", "Ваш аккаунт заблокирован. Обратитесь к администратору.");
+    }
+
     const accessToken       = signJWT({ sub: user.id, email: user.email }, ACCESS_TOKEN_TTL);
     const refreshTokenValue = randomBytes(40).toString("hex");
 
@@ -45,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       access_token:  accessToken,
       refresh_token: refreshTokenValue,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin, canCreateGame: user.canCreateGame },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

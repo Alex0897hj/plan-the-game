@@ -372,3 +372,64 @@ Authorization: Bearer <access_token>
   "ids": [3, 7]
 }
 ```
+
+---
+
+## Администрирование
+
+Все эндпоинты требуют `isAdmin = true`. Обычные пользователи получают `403 FORBIDDEN`.
+
+### GET /admin/users
+
+**Описание:** Список всех пользователей.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response 200:**
+```json
+[
+  {
+    "id": 1,
+    "email": "string",
+    "name": "string",
+    "isAdmin": false,
+    "isBlocked": false,
+    "canCreateGame": true,
+    "createdAt": "string"
+  }
+]
+```
+
+---
+
+### PATCH /admin/users/:id
+
+**Описание:** Изменение пользователя. Нельзя изменять другого администратора.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Request (все поля опциональны):**
+```json
+{
+  "isBlocked": true,
+  "canCreateGame": false,
+  "email": "new@example.com",
+  "name": "NewName"
+}
+```
+
+**Response 200:** Обновлённый объект пользователя.
+
+**Ошибки:**
+| Код | Описание |
+| --- | -------- |
+| 400 `VALIDATION_ERROR` | Некорректный email / имя / нет полей |
+| 403 `FORBIDDEN` | Не администратор или попытка изменить другого admin |
+| 404 `NOT_FOUND` | Пользователь не найден |
+| 409 `EMAIL_ALREADY_EXISTS` / `NAME_ALREADY_EXISTS` | Уже занято |

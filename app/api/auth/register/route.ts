@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       {
         access_token:  accessToken,
         refresh_token: refreshTokenValue,
-        user: { id: user.id, email: user.email, name: user.name },
+        user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin, canCreateGame: user.canCreateGame },
       },
       { status: 201 },
     );

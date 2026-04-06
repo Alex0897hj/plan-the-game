@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@/app/lib/auth-api";
 import LocationPicker, { type PickedLocation } from "@/app/components/LocationPicker";
@@ -15,6 +15,14 @@ interface FieldErrors {
 
 export default function CreateGamePage() {
   const router = useRouter();
+
+  useEffect(() => {
+    const raw = localStorage.getItem("user");
+    const user = raw ? JSON.parse(raw) : null;
+    if (!getAccessToken() || !user || user.canCreateGame === false) {
+      router.replace("/");
+    }
+  }, [router]);
 
   const [title,        setTitle]        = useState("");
   const [description,  setDescription]  = useState("");

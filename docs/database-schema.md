@@ -25,7 +25,9 @@
 | `email` | `String` | Unique |
 | `password` | `String` | Hashed |
 | `name` | `String` | Unique |
-| `isAdmin` | `Boolean` | Default: `false` |
+| `isAdmin` | `Boolean` | Default: `false` — superadmin flag |
+| `isBlocked` | `Boolean` | Default: `false` — blocked users cannot login |
+| `canCreateGame` | `Boolean` | Default: `true` — if `false`, POST /games is forbidden |
 | `createdAt` | `DateTime` | Default: now |
 
 **Relations:**
