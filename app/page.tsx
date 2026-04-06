@@ -61,19 +61,34 @@ function staticMapUrl(lat: number, lng: number): string {
 }
 
 export default function Home() {
-  const [games,      setGames]      = useState<Game[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [showMap,    setShowMap]    = useState(false);
-  const [activeTab,  setActiveTab]  = useState<"open" | "my">("open");
-  const [cityFilter, setCityFilter] = useState("");
-  const [dateFrom,   setDateFrom]   = useState("");
-  const [dateTo,     setDateTo]     = useState("");
+  const [games,        setGames]        = useState<Game[]>([]);
+  const [archivedGames, setArchivedGames] = useState<Game[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [showMap,      setShowMap]      = useState(false);
+  const [activeTab,    setActiveTab]    = useState<"open" | "my" | "archive">("open");
+  const [isAdmin,      setIsAdmin]      = useState(false);
+  const [cityFilter,   setCityFilter]   = useState("");
+  const [dateFrom,     setDateFrom]     = useState("");
+  const [dateTo,       setDateTo]       = useState("");
 
   const fetchGames = useCallback(async () => {
     const token   = getAccessToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+    // Detect admin from localStorage (set at login)
+    const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+    const userObj = rawUser ? JSON.parse(rawUser) : null;
+    const admin   = !!userObj?.isAdmin;
+    setIsAdmin(admin);
+
     const res = await fetch("/api/games", { headers });
     if (res.ok) setGames(await res.json());
+
+    if (admin && token) {
+      const archRes = await fetch("/api/admin/games", { headers });
+      if (archRes.ok) setArchivedGames(await archRes.json());
+    }
+
     setLoading(false);
   }, []);
 
@@ -90,9 +105,14 @@ export default function Home() {
 
   const filteredGames = useMemo(() => {
     const now = new Date();
-    const base = activeTab === "open"
-      ? games.filter((g) => g.status === "upcoming" && new Date(g.gameDateTime) > now)
-      : games.filter((g) => g.myStatus !== null && new Date(g.gameDateTime) > now);
+    let base: Game[];
+    if (activeTab === "archive") {
+      base = archivedGames;
+    } else if (activeTab === "open") {
+      base = games.filter((g) => g.status === "upcoming" && new Date(g.gameDateTime) > now);
+    } else {
+      base = games.filter((g) => g.myStatus !== null && new Date(g.gameDateTime) > now);
+    }
 
     return base.filter((g) => {
       if (cityFilter && g.city !== cityFilter) return false;
@@ -105,7 +125,7 @@ export default function Home() {
       }
       return true;
     });
-  }, [games, activeTab, cityFilter, dateFrom, dateTo]);
+  }, [games, archivedGames, activeTab, cityFilter, dateFrom, dateTo]);
 
   const hasActiveFilters = cityFilter || dateFrom || dateTo;
 
@@ -158,6 +178,14 @@ export default function Home() {
             Мои игры
             {hasMyGames && <span style={myGamesDotStyle} />}
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab("archive")}
+              style={activeTab === "archive" ? activeTabBtnStyle : tabBtnStyle}
+            >
+              Архивные игры
+            </button>
+          )}
         </div>
 
         {/* ── Filters ── */}
@@ -220,9 +248,11 @@ export default function Home() {
           <p style={mutedText}>
             {activeTab === "my"
               ? "Вы пока не участвуете ни в одной предстоящей игре."
-              : games.length === 0
-                ? "Пока нет ни одной игры. Создайте первую!"
-                : "Нет игр, соответствующих фильтрам."}
+              : activeTab === "archive"
+                ? "Нет архивных игр."
+                : games.length === 0
+                  ? "Пока нет ни одной игры. Создайте первую!"
+                  : "Нет игр, соответствующих фильтрам."}
           </p>
         ) : (
           <div style={gridStyle}>
@@ -242,8 +272,11 @@ function GameCard({ game }: { game: Game }) {
     hour: "2-digit", minute: "2-digit",
   });
 
+  const isPast = new Date(game.gameDateTime) < new Date();
   const statusColors: Record<Game["status"], { bg: string; color: string; label: string }> = {
-    upcoming:  { bg: "#eff6ff", color: "#2563eb", label: "Скоро"     },
+    upcoming:  isPast
+      ? { bg: "#f1f5f9", color: "#64748b", label: "Истекла"   }
+      : { bg: "#eff6ff", color: "#2563eb", label: "Скоро"     },
     completed: { bg: "#f0fdf4", color: "#16a34a", label: "Завершена" },
     cancelled: { bg: "#fef2f2", color: "#dc2626", label: "Отменена"  },
   };

@@ -108,8 +108,11 @@ export default function GamePage() {
   const hoursUntil = (new Date(game.gameDateTime).getTime() - Date.now()) / 3_600_000;
   const showDeadlineWarning = game.status === "upcoming" && hoursUntil > 0 && hoursUntil <= 6;
 
+  const isPast = new Date(game.gameDateTime) < new Date();
   const statusColors: Record<Game["status"], { bg: string; color: string; label: string }> = {
-    upcoming:  { bg: "#eff6ff", color: "#2563eb", label: "Скоро"     },
+    upcoming:  isPast
+      ? { bg: "#f1f5f9", color: "#64748b", label: "Истекла"   }
+      : { bg: "#eff6ff", color: "#2563eb", label: "Скоро"     },
     completed: { bg: "#f0fdf4", color: "#16a34a", label: "Завершена" },
     cancelled: { bg: "#fef2f2", color: "#dc2626", label: "Отменена"  },
   };
@@ -149,7 +152,7 @@ export default function GamePage() {
 
       {/* ── Back / Cancel row — above both columns ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-        <button onClick={() => router.back()} style={backBtnStyle}>← Назад</button>
+        <button onClick={() => router.push("/")} style={backBtnStyle}>← Назад</button>
         {canCancel && (
           <button onClick={() => setShowConfirm(true)} style={cancelBtnStyle}>
             Отменить игру

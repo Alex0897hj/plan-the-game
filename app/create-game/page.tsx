@@ -79,7 +79,7 @@ export default function CreateGamePage() {
 
       const data = await res.json();
       if (!res.ok) { setApiError(data?.message ?? "Произошла ошибка"); return; }
-      router.push("/");
+      router.push(`/games/${data.id}`);
     } finally {
       setLoading(false);
     }
